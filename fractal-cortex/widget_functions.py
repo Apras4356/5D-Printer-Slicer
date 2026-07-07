@@ -313,6 +313,7 @@ def update_values():
         E_retractionSpeed
     global enableSupports, C_enableSupports
     global enableBrim, C_enableBrim
+    global enableNonPlanarTopSurfaces, nozzleTipDiameter, nozzleShoulderWidth, nozzleAngle
     try:
         nozzleTemp = r0c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
         initialNozzleTemp = r1c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
@@ -351,6 +352,16 @@ def update_values():
         enableBrim = r0c1SettingsDeck.get_widget("adhesion").is_checked
     except:
         pass
+        
+    # Backend hooks for Non-Planar Slicing (UI to be built later)
+    try:
+        # Defaulting to disabled for standard printing, frontend will override this
+        enableNonPlanarTopSurfaces = False 
+        nozzleTipDiameter = 0.4
+        nozzleShoulderWidth = 2.0
+        nozzleAngle = 45.0
+    except:
+        pass
 
 def print_slicing_parameters():
     print("nozzleTemp:", nozzleTemp, "\n")
@@ -371,6 +382,10 @@ def print_slicing_parameters():
         print("Retraction Speed:", retractionSpeed, "\n")
     print("enableSupports:", enableSupports, "\n")
     print("enableBrim:", enableBrim, "\n")
+    print("enableNonPlanarTopSurfaces:", enableNonPlanarTopSurfaces, "\n")
+    print("nozzleTipDiameter:", nozzleTipDiameter, "\n")
+    print("nozzleShoulderWidth:", nozzleShoulderWidth, "\n")
+    print("nozzleAngle:", nozzleAngle, "\n")
 
 def set_sliceFlag(args):
     sliceButtonDeck.get_widget("B_slice").sliceFlag = True
@@ -407,6 +422,10 @@ def slice_function(meshData):
         retractionSpeed,
         enableSupports,
         enableBrim,
+        enableNonPlanarTopSurfaces,
+        nozzleTipDiameter,
+        nozzleShoulderWidth,
+        nozzleAngle,
     ]
 
     if sliceButtonDeck.get_widget("B_slice").argsList[0][0] != []: # Only proceed with slicing if there are STL's to slice

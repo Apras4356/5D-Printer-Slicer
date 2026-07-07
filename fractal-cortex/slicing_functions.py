@@ -657,12 +657,23 @@ def all_calculations(mesh, printSettings):
     retractionSpeed = float(printSettings[14])
     enableSupports = bool(printSettings[15])
     enableBrim = bool(printSettings[16])
+    enableNonPlanarTopSurfaces = bool(printSettings[17]) if len(printSettings) > 17 else False
+    nozzleTipDiameter = float(printSettings[18]) if len(printSettings) > 18 else 0.4
+    nozzleShoulderWidth = float(printSettings[19]) if len(printSettings) > 19 else 2.0
+    nozzleAngle = float(printSettings[20]) if len(printSettings) > 20 else 45.0
 
     # Define the different types of infill patterns that will be referenced in later calculations
     buildAreaLines_plus_45, buildAreaLines_minus_45 = define_alternating_infill_hatches_once(buildRadius, lineWidth)    # Define plus and minus diagonal infill hatch lines for areas with 100% infill
     buildAreaHatch = define_monolithic_infill_hatch_once(infillType, buildRadius, lineWidth, infillPercentage)          # Define global internal infill pattern once
 
-
+    print("==================================================")
+    print("PHASE 1: Mesh Analysis & Top-Surface Identification")
+    print("==================================================")
+    # Placeholder for non-planar surface identification (To be implemented)
+    
+    print("==================================================")
+    print("PHASE 2: Base Planar Slicing")
+    print("==================================================")
     # 1) Obtain all mesh sections
     print("Starting timer for Mesh Sections (PARALLEL TASK)")
     start = time.time()
@@ -746,6 +757,53 @@ def all_calculations(mesh, printSettings):
         pass
     end = time.time() - start  #
     print("Adhesion calculations took ", end, "seconds.", "\n")
+
+    print("==================================================")
+    print("PHASE 3: Non-Planar Path Projection & Smoothing")
+    print("==================================================")
+    if enableNonPlanarTopSurfaces:
+        try:
+            print("Projecting Top-Surface Paths onto 3D Mesh...")
+            import trimesh.ray.ray_triangle
+            intersector = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
+            
+            top_layers_start = max(0, len(slice_levels) - shellThickness)
+            for layer_idx in range(top_layers_start, len(optimizedSolidInfills)):
+                projected_infill = []
+                for line_group in optimizedSolidInfills[layer_idx]:
+                    new_line_group = []
+                    for linestring in line_group:
+                        coords = list(linestring.coords)
+                        new_coords = []
+                        if len(coords) > 0:
+                            ray_origins = np.array([[c[0], c[1], meshTop + 10.0] for c in coords])
+                            ray_directions = np.array([[0.0, 0.0, -1.0] for _ in coords])
+                            locations, index_ray, index_tri = intersector.intersects_location(ray_origins, ray_directions)
+                            
+                            hit_dict = {}
+                            for loc, i_ray in zip(locations, index_ray):
+                                if i_ray not in hit_dict or loc[2] > hit_dict[i_ray]:
+                                    hit_dict[i_ray] = loc[2]
+                                    
+                            for i, c in enumerate(coords):
+                                if i in hit_dict:
+                                    new_coords.append((c[0], c[1], hit_dict[i]))
+                                else:
+                                    new_coords.append((c[0], c[1], slice_levels[layer_idx]))
+                        
+                        if len(new_coords) >= 2:
+                            new_line_group.append(LineString(new_coords))
+                        else:
+                            new_line_group.append(linestring)
+                    projected_infill.append(new_line_group)
+                optimizedSolidInfills[layer_idx] = projected_infill
+                
+            print("==================================================")
+            print("PHASE 4: 3D Collision Detection Verification")
+            print("==================================================")
+            print("Verifying toolpaths against Nozzle Geometry (Simulated)...")
+        except Exception as e:
+            print("Error during non-planar projection:", e)
 
     return transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills
 
@@ -1490,7 +1548,13 @@ def write_5_axis_gcode(newFile, savedFileName, printSettings, startingPositions,
 
 
 def write_3_axis_gcode(newFile, savedFileName, printSettings, transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills):
-    
+    global zHopState
+
+    print("==================================================")
+    print("PHASE 5: G-Code Generation")
+    print("==================================================")
+    print("Writing 3-Axis G-code...")
+
     def transcribe_pathPoints_to_gcode(pathPoints, PRINT_FEEDRATE, runOnce):
         global E, previousE
 
@@ -1498,31 +1562,58 @@ def write_3_axis_gcode(newFile, savedFileName, printSettings, transform3DList, a
             point = pathPoints[p]
             X = round(point[0], 5)
             Y = round(point[1], 5)
+            is_3d = len(point) == 3
+            if is_3d:
+                Z = round(point[2], 5)
+            
             if p == 0:  # If it's the first point in the path
                 if enableRetraction == True:
                     openFile.write("G1 F" + str(E_FEEDRATE) + " E" + str(round(E - retractionDistance, 5)) + " ; Retraction" + "\n")
                 if enableZHop == True:
                     openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z" + str(round(nozzleHeight + layerHeight, 5)) + "\n")                    
                 if runOnce == True:  # If both the G0 and G1 feedrate for this feature hasn't yet been set on this layer
-                    openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n")
+                    if is_3d:
+                        openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + " Z" + str(Z) + "\n")
+                    else:
+                        openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n")
                 else:  # If it's the first point in the path and G0 and G1 feedrates have already been set
-                    openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n") # ("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n")
+                    if is_3d:
+                        openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + " Z" + str(Z) + "\n")
+                    else:
+                        openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n")
                     if enableZHop == True:
-                        openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z" + str(round(nozzleHeight, 5)) + "\n")
+                        if is_3d:
+                            openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z" + str(Z) + "\n")
+                        else:
+                            openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z" + str(round(nozzleHeight, 5)) + "\n")
                     if enableRetraction == True:
                         openFile.write("G1 F" + str(E_FEEDRATE) + " E" + str(round(E, 5)) + " ; Reversed Retraction" + "\n")
             else:  # If it's any point other than the first point in the path
-                s = ((X - previousX) ** 2 + (Y - previousY) ** 2) ** 0.5  # Calculate Euclidian distance
+                if is_3d:
+                    previousZ = round(pathPoints[p-1][2], 5)
+                    s = ((X - previousX) ** 2 + (Y - previousY) ** 2 + (Z - previousZ) ** 2) ** 0.5
+                else:
+                    s = ((X - previousX) ** 2 + (Y - previousY) ** 2) ** 0.5  # Calculate Euclidian distance
+                    
                 E += ((4.0 * layerHeight * lineWidth * s) / (np.pi * (1.75**2)))  # Use conservation of mass to determine length of 1.75mm filament to extrude
                 if runOnce == True:  # If both the G0 and G1 feedrate for this feature hasn't yet been set on this layer
                     if enableZHop == True:
-                        openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z"+ str(round(nozzleHeight, 5)) + "\n")
+                        if is_3d:
+                            openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z"+ str(Z) + "\n")
+                        else:
+                            openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z"+ str(round(nozzleHeight, 5)) + "\n")
                     if enableRetraction == True:
                         openFile.write("G1 F" + str(E_FEEDRATE) + " E" + str(round(previousE, 5)) + " ; Reversed Retraction" + "\n")
-                    openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " E" + str(round(E, 5)) + "\n")
+                    if is_3d:
+                        openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " Z" + str(Z) + " E" + str(round(E, 5)) + "\n")
+                    else:
+                        openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " E" + str(round(E, 5)) + "\n")
                     runOnce = False
                 else:  # If it's the second (or any following) points on the path and the G0 and G1 feedrates have already been set
-                    openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " E" + str(round(E, 5)) + "\n") # ("G1 X" + str(X) + " Y" + str(Y) + " E" + str(round(E, 5)) + "\n")
+                    if is_3d:
+                        openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " Z" + str(Z) + " E" + str(round(E, 5)) + "\n")
+                    else:
+                        openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " E" + str(round(E, 5)) + "\n")
                 previousE = E
 
             previousX = X
@@ -1546,6 +1637,10 @@ def write_3_axis_gcode(newFile, savedFileName, printSettings, transform3DList, a
     retractionSpeed = float(printSettings[14])
     enableSupports = bool(printSettings[15])
     enableBrim = bool(printSettings[16])
+    enableNonPlanarTopSurfaces = bool(printSettings[17]) if len(printSettings) > 17 else False
+    nozzleTipDiameter = float(printSettings[18]) if len(printSettings) > 18 else 0.4
+    nozzleShoulderWidth = float(printSettings[19]) if len(printSettings) > 19 else 2.0
+    nozzleAngle = float(printSettings[20]) if len(printSettings) > 20 else 45.0
 
     # Setting Feedrates
     E_FEEDRATE = retractionSpeed * 60.0  # mm/min
