@@ -1,0 +1,17 @@
+# Virtual environments
+venv310/
+venv/
+env/
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs
+.vscode/
+.idea/
+
+# Output files
+*.gcode

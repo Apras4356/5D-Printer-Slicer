@@ -27,6 +27,15 @@ import pyglet
 from pyglet.gl import *
 from pyglet.window import mouse
 from pyglet.window import key
+
+# Monkey-patch OrderedGroup for glooey to work with Pyglet 2.x
+import pyglet.graphics
+if not hasattr(pyglet.graphics, 'OrderedGroup'):
+    class OrderedGroup(pyglet.graphics.Group):
+        def __init__(self, order, parent=None):
+            super().__init__(order=order, parent=parent)
+    pyglet.graphics.OrderedGroup = OrderedGroup
+
 import glooey
 import trimesh
 import numpy as np

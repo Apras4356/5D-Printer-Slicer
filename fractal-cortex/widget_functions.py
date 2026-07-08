@@ -353,10 +353,13 @@ def update_values():
     except:
         pass
         
-    # Backend hooks for Non-Planar Slicing (UI to be built later)
+    # Backend hooks for Non-Planar Slicing
     try:
-        # Defaulting to disabled for standard printing, frontend will override this
+        enableNonPlanarTopSurfaces = r1c1SettingsDeck.get_widget("resolution").is_checked
+    except:
         enableNonPlanarTopSurfaces = False 
+    
+    try:
         nozzleTipDiameter = 0.4
         nozzleShoulderWidth = 2.0
         nozzleAngle = 45.0
@@ -1355,7 +1358,7 @@ r1c0SettingsDeck = glooey.Deck(
     defaultState,
     material=Widget_Label("    Initial Nozzle Temperature"),
     strength=Widget_Label("Shell Thickness"),
-    resolution=Light_Gray_Background(),
+    resolution=Widget_Label("Enable Non-Planar Tops"),
     movement=Widget_Label("    Initial Print Speed"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
@@ -1364,7 +1367,7 @@ r1c1SettingsDeck = glooey.Deck(
     defaultState,
     material=Entry_Box(str(initialNozzleTemp), 100.0, 250.0, "°C"),
     strength=Entry_Box(str(shellThickness), 1, 10, "layers"),
-    resolution=Light_Gray_Background(),
+    resolution=Checkbox(),
     movement=Entry_Box(str(initialPrintSpeed), 5.0, 300.0, "mm/s"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),

@@ -766,6 +766,7 @@ def all_calculations(mesh, printSettings):
             print("Projecting Top-Surface Paths onto 3D Mesh...")
             import trimesh.ray.ray_triangle
             intersector = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
+            meshTop = mesh.bounds[1][2]
             
             top_layers_start = max(0, len(slice_levels) - shellThickness)
             for layer_idx in range(top_layers_start, len(optimizedSolidInfills)):
