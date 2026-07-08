@@ -37,7 +37,8 @@ Contains all functions that are triggered upon interacting with widgets.
 """
 
 # Adding a custom font
-pyglet.font.add_file("Roboto-Regular.ttf")
+font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Roboto-Regular.ttf")
+pyglet.font.add_file(font_path)
 pyglet.font.load("Roboto")
 
 """ GLOBAL VARIABLES """

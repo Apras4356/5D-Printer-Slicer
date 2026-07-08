@@ -20,6 +20,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import os
+# Ensure working directory is set to the location of this script to fix relative asset paths
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 import threading
 import queue
 from concurrent.futures import ThreadPoolExecutor
@@ -54,6 +58,7 @@ from ctypes import (
 import math as m
 from fractal_widgets import *
 from widget_functions import *
+from slicing_functions import GeometryCalculationError
 
 """
 Contains all the logic and processes required to run the interactive graphics window.
@@ -191,6 +196,15 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                     try:
                         result = future.result()
                         callback(result)
+                    except GeometryCalculationError as ge:
+                        print("\n" + "="*60)
+                        print("❌ GEOMETRY CALCULATION FAILED")
+                        print("="*60)
+                        print(f"Reason: {ge}")
+                        print("\nWe suggest using a cloud-based volumetric slicer like Google Colab")
+                        print("for processing highly complex or non-manifold models.")
+                        print("Check out S4_Slicer on Colab as a robust alternative.")
+                        print("="*60 + "\n")
                     except Exception as e:
                         print(f"Error processing result: {e}")
                 self.calculation_in_progress = False

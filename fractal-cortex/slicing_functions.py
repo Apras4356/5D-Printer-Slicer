@@ -49,6 +49,10 @@ import sys
 Contains all calculations related to 3-axis and 5-axis slicing operations.
 """
 
+class GeometryCalculationError(Exception):
+    """Raised when slicing calculations encounter challenging/non-manifold geometry that halts the process."""
+    pass
+
 # Example Inputs
 infillType = "Triangular"
 buildRadius = 150.0  # mm
@@ -83,7 +87,16 @@ def get_initial_shells_for_one_layer(shapely_polygons, lineWidth):
     initialShellPolygons = []
     shellPolyList = []
     for poly in shapely_polygons:  # Start with polygons from the mesh that have no offset
-        bufferedPoly = poly.buffer(-lineWidth / 2.0, join_style=2)  # Offset (buffer) the polygons inward by a distance of half the lineWidth. This makes it so that when printing, the outer edge of the bead of extruded filament aligns to the outer dimension of the STL. Mitred corners are used.
+        try:
+            bufferedPoly = poly.buffer(-lineWidth / 2.0, join_style=2)  # Offset (buffer) the polygons inward by a distance of half the lineWidth. This makes it so that when printing, the outer edge of the bead of extruded filament aligns to the outer dimension of the STL. Mitred corners are used.
+        except Exception:
+            try:
+                # Attempt to repair the polygon
+                repaired_poly = poly.buffer(0)
+                bufferedPoly = repaired_poly.buffer(-lineWidth / 2.0, join_style=2)
+            except Exception as e:
+                raise GeometryCalculationError(f"Failed to calculate initial shells due to complex geometry: {e}")
+
         initialShellPolygons.append(make_valid(bufferedPoly))       # Make the buffered polygons valid if they aren't already, then add them to a list
         del bufferedPoly                                            # Delete bufferedPoly to save on memory
     shellPolyList.append(initialShellPolygons)                      # List of all buffered polygons for one layer
@@ -97,12 +110,27 @@ def get_remaining_shells_for_one_layer(shellPolyList, lineWidth, shellThickness)
         for shell in range(shellThickness - 1):                                     # For the remaining shells that need to be defined:
             for geometry in shellPolyList[shell]:
                 if geometry.geom_type == "Polygon":
-                    newBufferedPoly = geometry.buffer(-lineWidth, join_style=2)     # Mitred corners (Changing this may impact infill calculation speed. Need to test this)
+                    try:
+                        newBufferedPoly = geometry.buffer(-lineWidth, join_style=2)     # Mitred corners (Changing this may impact infill calculation speed. Need to test this)
+                    except Exception:
+                        try:
+                            repaired = geometry.buffer(0)
+                            newBufferedPoly = repaired.buffer(-lineWidth, join_style=2)
+                        except Exception as e:
+                            raise GeometryCalculationError(f"Failed to calculate remaining shells due to complex geometry: {e}")
+                            
                     volatilePolyList.append(make_valid(newBufferedPoly))
                     del newBufferedPoly
                 elif geometry.geom_type == "MultiPolygon":                          # If a shell has multiple polygons, process each one individually
                     for poly in geometry.geoms:
-                        newBufferedPoly = geometry.buffer(-lineWidth, join_style=2)
+                        try:
+                            newBufferedPoly = poly.buffer(-lineWidth, join_style=2)
+                        except Exception:
+                            try:
+                                repaired = poly.buffer(0)
+                                newBufferedPoly = repaired.buffer(-lineWidth, join_style=2)
+                            except Exception as e:
+                                raise GeometryCalculationError(f"Failed to calculate MultiPolygon shells due to complex geometry: {e}")
                         volatilePolyList.append(make_valid(newBufferedPoly))
                         del newBufferedPoly
             shellPolyList.append(volatilePolyList.copy())                           # Append new buffered polygons to the list after every shell is created
@@ -380,11 +408,11 @@ def get_manifold_areas_for_one_chunk(innerMostPolygonsList, infillPercentage, sh
                                 if not difference_result.is_empty and difference_result.is_valid:                       # If the difference yields a valid, nonzero area, then add that to the internal areas for this layer
                                     internalAreas[layer].append(difference_result)
                             except Exception as e:
-                                print("1. Error Processing Layer", str(layer), str(e))
+                                raise GeometryCalculationError(f"Error Processing Layer {layer}: {e}")
                     else:                                                                                               # If there are no manifold areas on this layer, then whatever the current layer area is gets set equal to the internal area for this layer
                         internalAreas[layer].append(currentLayerArea)
-                except Exception as e:                                                                                  # If there is some problem with the area calculations, just skip this layer to move on
-                    print("2. Error Processing Layer", str(layer), str(e))
+                except Exception as e:                                                                                  # If there is some problem with the area calculations, raise the error to halt slicing
+                    raise GeometryCalculationError(f"Error Processing Layer {layer}: {e}")
 
     warnings.resetwarnings()                                                                                            # Turns warnings back to warnings instead of errors
     return manifoldAreas, internalAreas
