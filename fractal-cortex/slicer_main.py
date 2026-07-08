@@ -1284,7 +1284,19 @@ class Render_Model:
         vertexVbo = GLuint()
         normalVbo = GLuint()
         indexVbo = GLuint()
-        self.stlMesh = trimesh.load_mesh(stlFilePath)
+        self.stlMesh = trimesh.load(stlFilePath, force='mesh')
+        
+        if getattr(self.stlMesh, 'is_empty', False):
+            print(f"WARNING: Mesh {stlFilePath} contains no geometry or could not be parsed.")
+            self.stlMesh = trimesh.creation.box(extents=[10.0, 10.0, 10.0])
+            
+        self.load_project_mesh(index, self.stlMesh)
+
+    def load_project_mesh(self, index, mesh):
+        vertexVbo = GLuint()
+        normalVbo = GLuint()
+        indexVbo = GLuint()
+        self.stlMesh = mesh
         self.__class__.D_stlMeshes[index] = self.stlMesh
         if not self.stlMesh.is_watertight:
             self.stlMesh.fix_normals()

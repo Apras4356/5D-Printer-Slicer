@@ -398,6 +398,138 @@ def print_slicing_parameters():
 def set_sliceFlag(args):
     sliceButtonDeck.get_widget("B_slice").sliceFlag = True
 
+project_transforms = None
+
+def export_project_settings():
+    update_values()
+    settings = {
+        "nozzleTemp": nozzleTemp,
+        "initialNozzleTemp": initialNozzleTemp,
+        "bedTemp": bedTemp,
+        "initialBedTemp": initialBedTemp,
+        "infillPercentage": infillPercentage,
+        "shellThickness": shellThickness,
+        "layerHeight": layerHeight,
+        "printSpeed": printSpeed,
+        "initialPrintSpeed": initialPrintSpeed,
+        "travelSpeed": travelSpeed,
+        "initialTravelSpeed": initialTravelSpeed,
+        "enableZHop": enableZHop,
+        "enableRetraction": enableRetraction,
+        "retractionDistance": retractionDistance,
+        "retractionSpeed": retractionSpeed,
+        "enableSupports": enableSupports,
+        "enableBrim": enableBrim,
+        "enableNonPlanarTopSurfaces": enableNonPlanarTopSurfaces,
+        "nozzleTipDiameter": nozzleTipDiameter,
+        "nozzleShoulderWidth": nozzleShoulderWidth,
+        "nozzleAngle": nozzleAngle,
+    }
+    
+    import __main__ as slicer_main
+    transforms = {}
+    for key in slicer_main.Graphics_Window.D_finalPositions.keys():
+        transforms[str(key)] = {
+            "finalPosition": [float(x) for x in slicer_main.Graphics_Window.D_finalPositions[key]],
+            "finalScale": [float(x) for x in slicer_main.Graphics_Window.D_finalScales[key]],
+            "finalRotation": slicer_main.Graphics_Window.D_finalRotations[key].tolist()
+        }
+    return {"settings": settings, "transforms": transforms}
+
+def save_project(*args):
+    try:
+        desktopDirectory = os.path.join(os.path.expanduser("~"), "Desktop")
+        newFile = filedialog.asksaveasfilename(initialdir=desktopDirectory, title="Save Project As...", defaultextension=".3mf", filetypes=(("3MF Project File", "*.3mf"),))
+        if not newFile:
+            return
+            
+        import json
+        import trimesh
+        import __main__ as slicer_main
+        import zipfile
+        import io
+        import numpy as np
+        
+        if not slicer_main.Render_Model.D_stlMeshes:
+            print("Cannot save an empty project!")
+            return
+            
+        scene = trimesh.Scene()
+        
+        for key, mesh in slicer_main.Render_Model.D_stlMeshes.items():
+            translation = slicer_main.Graphics_Window.D_finalPositions[key]
+            scale = slicer_main.Graphics_Window.D_finalScales[key]
+            R = slicer_main.Graphics_Window.D_finalRotations[key] # 4x4 numpy array
+            
+            M_translate = trimesh.transformations.translation_matrix(translation)
+            S = np.diag([scale[0], scale[1], scale[2], 1.0])
+            
+            # The rotation matrix is already a 4x4 matrix
+            M = trimesh.transformations.concatenate_matrices(M_translate, R, S)
+            scene.add_geometry(mesh, geom_name=str(key), transform=M)
+            
+        raw_3mf_bytes = trimesh.exchange.threemf.export_3MF(scene)
+        settings_json = json.dumps(export_project_settings(), indent=4)
+        
+        zip_buffer = io.BytesIO(raw_3mf_bytes)
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("Metadata/fractal_cortex_settings.json", settings_json)
+            
+        with open(newFile, "wb") as f:
+            f.write(zip_buffer.getvalue())
+            
+        print(f"Project saved to {newFile}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+def import_project_settings(settings_json_str):
+    import json
+    data = json.loads(settings_json_str)
+    settings = data.get("settings", {})
+    transforms = data.get("transforms", {})
+    
+    if "nozzleTemp" in settings: r0c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(settings["nozzleTemp"]))
+    if "initialNozzleTemp" in settings: r1c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(settings["initialNozzleTemp"]))
+    if "bedTemp" in settings: r2c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(settings["bedTemp"]))
+    if "initialBedTemp" in settings: r3c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(settings["initialBedTemp"]))
+    
+    if "infillPercentage" in settings: r0c1SettingsDeck.get_widget("strength").entryBoxEditableLabel.set_text(str(settings["infillPercentage"]))
+    if "shellThickness" in settings: r1c1SettingsDeck.get_widget("strength").entryBoxEditableLabel.set_text(str(settings["shellThickness"]))
+    
+    if "layerHeight" in settings: r0c1SettingsDeck.get_widget("resolution").entryBoxEditableLabel.set_text(str(settings["layerHeight"]))
+    
+    if "printSpeed" in settings: r0c1SettingsDeck.get_widget("movement").entryBoxEditableLabel.set_text(str(settings["printSpeed"]))
+    if "initialPrintSpeed" in settings: r1c1SettingsDeck.get_widget("movement").entryBoxEditableLabel.set_text(str(settings["initialPrintSpeed"]))
+    if "travelSpeed" in settings: r2c1SettingsDeck.get_widget("movement").entryBoxEditableLabel.set_text(str(settings["travelSpeed"]))
+    if "initialTravelSpeed" in settings: r3c1SettingsDeck.get_widget("movement").entryBoxEditableLabel.set_text(str(settings["initialTravelSpeed"]))
+    
+    if "enableZHop" in settings:
+        w = r4c1SettingsDeck.get_widget("movement")
+        if settings["enableZHop"] != w.is_checked: w.toggle()
+    if "enableRetraction" in settings:
+        w = r5c1SettingsDeck.get_widget("movement")
+        if settings["enableRetraction"] != w.is_checked: w.toggle()
+        
+    if "retractionDistance" in settings: r6c1SettingsDeck.get_widget("movement").get_widget("enabled").entryBoxEditableLabel.set_text(str(settings["retractionDistance"]))
+    if "retractionSpeed" in settings: r7c1SettingsDeck.get_widget("movement").get_widget("enabled").entryBoxEditableLabel.set_text(str(settings["retractionSpeed"]))
+    
+    if "enableSupports" in settings:
+        w = r0c1SettingsDeck.get_widget("supports")
+        if settings["enableSupports"] != w.is_checked: w.toggle()
+    if "enableBrim" in settings:
+        w = r0c1SettingsDeck.get_widget("adhesion")
+        if settings["enableBrim"] != w.is_checked: w.toggle()
+        
+    if "enableNonPlanarTopSurfaces" in settings:
+        w = r1c1SettingsDeck.get_widget("resolution")
+        if settings["enableNonPlanarTopSurfaces"] != w.is_checked: w.toggle()
+    
+    update_values()
+    
+    global project_transforms
+    project_transforms = transforms
+
 def slice_function(meshData):
     global \
         printSettings, \
@@ -532,15 +664,75 @@ def select_file():      # Called when the user clicks the file select button
     )
     fileName = filedialog.askopenfilename(
         initialdir=desktopDirectory,
-        title="Select an STL File",
-        filetypes=(("STL Files", "*.stl"), ("All Files", "*.*")),
+        title="Select a Mesh File",
+        filetypes=(("Mesh Files", "*.stl;*.3mf"), ("All Files", "*.*")),
     )
 
     if fileName:        # If a file has been selected
-        B_selectFile.D_variables[fileKey] = (
-            fileName    # Add the filename to the list of selected files
-        )
-        fileKey += 1    # Update the fileKey
+        is_project = False
+        if fileName.endswith('.3mf'):
+            import zipfile
+            try:
+                with zipfile.ZipFile(fileName, 'r') as z:
+                    if "Metadata/fractal_cortex_settings.json" in z.namelist():
+                        is_project = True
+                        settings_str = z.read("Metadata/fractal_cortex_settings.json").decode('utf-8')
+                        import_project_settings(settings_str)
+            except:
+                pass
+                
+        if is_project:
+            import trimesh
+            import __main__ as slicer_main
+            
+            slicer_main.Graphics_Window.D_finalPositions.clear()
+            slicer_main.Graphics_Window.D_sizeHistory.clear()
+            slicer_main.Graphics_Window.D_axisRotationHistory.clear()
+            slicer_main.Graphics_Window.D_finalRotations.clear()
+            slicer_main.Graphics_Window.D_finalScales.clear()
+            slicer_main.Render_Model.D_stlMeshes.clear()
+            B_selectFile.D_variables.clear()
+            slicer_main.L_loadedIndices.clear()
+            
+            global fileKey
+            fileKey = 0
+            
+            scene = trimesh.load(fileName)
+            if isinstance(scene, trimesh.Scene):
+                for node_name in scene.graph.nodes_geometry:
+                    geom_name = scene.graph.get(node_name)[1]
+                    mesh = scene.geometry[geom_name]
+                    try:
+                        k = int(geom_name)
+                    except:
+                        k = fileKey
+                        
+                    slicer_main.Graphics_Window.D_finalPositions[k] = [0.0, 0.0, 0.0]
+                    slicer_main.Graphics_Window.D_sizeHistory[k] = [[1.0, 1.0, 1.0]]
+                    slicer_main.Graphics_Window.D_axisRotationHistory[k] = "X"
+                    
+                    global project_transforms
+                    if project_transforms and str(k) in project_transforms:
+                        t = project_transforms[str(k)]
+                        slicer_main.Graphics_Window.D_finalPositions[k] = t["finalPosition"]
+                        slicer_main.Graphics_Window.D_finalScales[k] = t["finalScale"]
+                        
+                        import numpy as np
+                        rot = np.array(t["finalRotation"])
+                        slicer_main.Graphics_Window.D_finalRotations[k] = rot
+                        slicer_main.Graphics_Window.D_previousRotations[k] = rot
+                        
+                    B_selectFile.D_variables[k] = fileName
+                    slicer_main.L_loadedIndices.append(k)
+                    fileKey = max(fileKey, k) + 1
+                    
+            return fileName
+            
+        else:
+            B_selectFile.D_variables[fileKey] = (
+                fileName    # Add the filename to the list of selected files
+            )
+            fileKey += 1    # Update the fileKey
     return fileName
 
 def checkSlicePlaneValidity():
@@ -1057,6 +1249,8 @@ def initialize_all_widgets(gui, windowHeight):
     baseGrid.add(0, 1, Dark_Gray_Background())
     # R1 C0
     leftToolBarBoard.add(B_selectFile, left=0, top=baseGridTop)
+    leftToolBarBoard.add(B_saveProject, left=60, top=baseGridTop)
+    leftToolBarBoard.add(B_calibration, left=120, top=baseGridTop)
     leftToolBarBoard.add(R_geometryAction, left=0, bottom=5)
     leftToolBarBoard.add(geometryActionBackgroundDeck, left=60, bottom=5)
     leftToolBarTopBoard.add(r0GeometryActionDeck,center_x=130, bottom=120)
@@ -1551,7 +1745,13 @@ sliceButtonDeck = glooey.Deck(
         [],
     ),
 )
-
+B_saveProject = Unlabeled_Image_Button(
+    "image_resources/File_Button_Images/saveProject/base.png",
+    "image_resources/File_Button_Images/saveProject/over.png",
+    "image_resources/File_Button_Images/saveProject/down.png",
+    save_project,
+    [],
+)
 sliceButtonDeck.get_widget("B_slice").set_disabled(True) # Start out with the slice button disabled. Only enable it when there is something to slice
 # R0 C0
 I_logo = Custom_Image("image_resources/logo/logo.png")  # New
@@ -1573,6 +1773,17 @@ R_viewMode.set_disabled(True) # Start out with this disabled so the user can't s
 # R0 C1
 
 # R1 C0
+def run_calibration(*args):
+    print("Calibration not implemented yet!")
+
+B_calibration = Unlabeled_Image_Button(
+    "image_resources/File_Button_Images/calibration/base.png",
+    "image_resources/File_Button_Images/calibration/over.png",
+    "image_resources/File_Button_Images/calibration/down.png",
+    run_calibration,
+    [],
+)
+
 B_selectFile = Unlabeled_Image_Button(
     "image_resources/File_Button_Images/base.png",
     "image_resources/File_Button_Images/over.png",
