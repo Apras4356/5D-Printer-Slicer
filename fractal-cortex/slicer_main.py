@@ -34,7 +34,7 @@ from pyglet.window import key
 
 # Monkey-patch OrderedGroup for glooey to work with Pyglet 2.x
 import pyglet.graphics
-if not hasattr(pyglet.graphics, 'OrderedGroup'):
+if not hasattr(pyglet.graphics, 'OrderedGroup'): 
     class OrderedGroup(pyglet.graphics.Group):
         def __init__(self, order, parent=None):
             super().__init__(order=order, parent=parent)
@@ -433,13 +433,15 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                     shellPathsCombined = R_viewMode.D_variables["shellPathsCombined"]
                     internalInfillPathsCombined = R_viewMode.D_variables["internalInfillPathsCombined"]
                     solidInfillPathsCombined = R_viewMode.D_variables["solidInfillPathsCombined"]
+                    supportInfillPathsCombined = R_viewMode.D_variables.get("supportInfillPathsCombined", None)
     
                     adhesion_vbo_data = self.Render_Preview.create_vbo_for_segments(adhesionPathsCombined)
                     shell_vbo_data = self.Render_Preview.create_vbo_for_segments(shellPathsCombined)
                     infill_vbo_data = self.Render_Preview.create_vbo_for_segments(internalInfillPathsCombined)
                     solid_infill_vbo_data = self.Render_Preview.create_vbo_for_segments(solidInfillPathsCombined)
+                    support_infill_vbo_data = self.Render_Preview.create_vbo_for_segments(supportInfillPathsCombined) if supportInfillPathsCombined is not None else None
                     
-                    self.__class__.D_renderedToolpaths[k] = (True, adhesion_vbo_data, shell_vbo_data, infill_vbo_data, solid_infill_vbo_data)
+                    self.__class__.D_renderedToolpaths[k] = (True, adhesion_vbo_data, shell_vbo_data, infill_vbo_data, solid_infill_vbo_data, support_infill_vbo_data)
                     
                     R_viewMode.preRendered = True                       # In the future, make this reset to false when meshes are resliced
 
@@ -452,6 +454,9 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                     self.Render_Preview.draw_toolpaths_from_stored(self.__class__.D_renderedToolpaths[k][3], (0.2, 0.5, 0.8, 0.7))
                     # Draw solid infill a different color
                     self.Render_Preview.draw_toolpaths_from_stored(self.__class__.D_renderedToolpaths[k][4], (0.8, 0.2, 0.5, 0.7))
+                    # Draw support infill a different color
+                    if len(self.__class__.D_renderedToolpaths[k]) > 5 and self.__class__.D_renderedToolpaths[k][5] is not None:
+                        self.Render_Preview.draw_toolpaths_from_stored(self.__class__.D_renderedToolpaths[k][5], (0.2, 0.8, 0.2, 0.7))
                     
 
         # DRAWING SLICE PLANES

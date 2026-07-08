@@ -133,6 +133,7 @@ adhesionList = None
 shellRingsListList = None
 optimizedInternalInfills = None
 optimizedSolidInfills = None
+optimizedSupportInfills = None
 
 chunk_transform3DList = None
 chunk_shellRingsListList = None
@@ -192,6 +193,7 @@ def toggle_viewMode_layout(parentWidget):
         shellRingsListList, \
         optimizedInternalInfills, \
         optimizedSolidInfills, \
+        optimizedSupportInfills, \
         chunk_transform3DList, \
         chunk_shellRingsListList, \
         chunk_optimizedInternalInfills, \
@@ -204,14 +206,16 @@ def toggle_viewMode_layout(parentWidget):
         if R_viewMode.preRendered == False: # If the toolpaths haven't been processed for rendering yet, process them, otherwise, don't do anything
                 
             if printMode == "3-Axis Mode":
-                adhesionPathsCombined, shellPathsCombined, internalInfillPathsCombined, solidInfillPathsCombined = convert_slice_data_to_renderable_vertices(transform3DList, adhesionList, shellRingsListList,optimizedInternalInfills,optimizedSolidInfills)
+                adhesionPathsCombined, shellPathsCombined, internalInfillPathsCombined, solidInfillPathsCombined, supportInfillPathsCombined = convert_slice_data_to_renderable_vertices(transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills, optimizedSupportInfills)
             elif printMode == "5-Axis Mode":
-                adhesionPathsCombined, shellPathsCombined, internalInfillPathsCombined, solidInfillPathsCombined = convert_slice_data_to_renderable_vertices(chunk_transform3DList, adhesionList, chunk_shellRingsListList, chunk_optimizedInternalInfills, chunk_optimizedSolidInfills)
+                # Assuming 5-axis doesn't have supports yet, so pass None
+                adhesionPathsCombined, shellPathsCombined, internalInfillPathsCombined, solidInfillPathsCombined, supportInfillPathsCombined = convert_slice_data_to_renderable_vertices(chunk_transform3DList, adhesionList, chunk_shellRingsListList, chunk_optimizedInternalInfills, chunk_optimizedSolidInfills, None)
 
             R_viewMode.D_variables["adhesionPathsCombined"] = adhesionPathsCombined
             R_viewMode.D_variables["shellPathsCombined"] = shellPathsCombined
             R_viewMode.D_variables["internalInfillPathsCombined"] = internalInfillPathsCombined
             R_viewMode.D_variables["solidInfillPathsCombined"] = solidInfillPathsCombined
+            R_viewMode.D_variables["supportInfillPathsCombined"] = supportInfillPathsCombined
             
 
         elif R_viewMode.preRendered == True:
@@ -402,6 +406,7 @@ def slice_function(meshData):
         shellRingsListList, \
         optimizedInternalInfills, \
         optimizedSolidInfills, \
+        optimizedSupportInfills, \
         chunk_transform3DList, \
         chunk_shellRingsListList, \
         chunk_optimizedInternalInfills, \
@@ -442,6 +447,7 @@ def slice_function(meshData):
                 shellRingsListList,
                 optimizedInternalInfills,
                 optimizedSolidInfills,
+                optimizedSupportInfills,
             ) = slice_in_3_axes(printSettings, meshData)            
 
         elif printMode == "5-Axis Mode":
@@ -498,7 +504,8 @@ def save_gcode_as(fileName):
                 adhesionList,
                 shellRingsListList,
                 optimizedInternalInfills,
-                optimizedSolidInfills
+                optimizedSolidInfills,
+                optimizedSupportInfills
             )
         elif printMode == "5-Axis Mode":
             startingPositions = R_optionMode.D_variables['startingPositions']

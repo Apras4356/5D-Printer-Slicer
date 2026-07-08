@@ -480,6 +480,13 @@ def define_monolithic_infill_hatch_once(infillType, buildRadius, lineWidth, infi
         buildAreaLines_60 = [affinity.rotate(k, 60, origin=Point(0, 0), use_radians=False) for k in buildAreaLines_0]   # Rotate a copy of the horizontal lines by +60 deg
         buildAreaLines_120 = [affinity.rotate(k, 120, origin=Point(0, 0), use_radians=False) for k in buildAreaLines_0] # Rotate a copy of the horizontal lines by +120 deg
         buildAreaHatch = buildAreaLines_0 + buildAreaLines_60 + buildAreaLines_120                                      # Add the 0, 60, and 120 lines together to form the triangular infill pattern
+    elif infillType == "Lines":
+        definedSpacing = round(lineWidth / infillPercentage, 3)
+        Ypositive = np.arange(definedSpacing, buildRadius, definedSpacing)
+        Ynegative = -np.flip(Ypositive)
+        Ycoords = np.concatenate((Ynegative, [0], Ypositive))
+        # Simple horizontal lines
+        buildAreaHatch = [LineString([(-buildRadius, y), (buildRadius, y)]) for y in Ycoords]
     elif infillType == "Grid":                                  # Define the global grid infill (Not yet defined)
         pass
     return buildAreaHatch
@@ -731,6 +738,29 @@ def all_calculations(mesh, printSettings):
     print("Starting timer for Getting Manifold & Internal Areas (SERIES TASK)")                                                         # This task must be performed in series since the infill area definitions depend on geometrical comparisons within the context of adjacent layers
     start = time.time() 
     manifoldAreasDict, internalAreasDict = get_manifold_areas_for_one_chunk(innerMostPolygonsList, infillPercentage, shellThickness)    # Since this is 3-axis mode, one chunk just means the entire STL
+    optimizedSupportInfills = [[] for _ in range(len(innerMostPolygonsList))]
+    if enableSupports:
+        print("Starting timer for Support Volumes (SERIES TASK)")
+        start_supp = time.time()
+        import support_generation
+        supportAreas = support_generation.generate_support_volumes(innerMostPolygonsList, lineWidth * 1.5)
+        
+        # Define the support hatch (Lines at 20% density for easy removal)
+        supportHatch = define_monolithic_infill_hatch_once("Lines", buildRadius, lineWidth, 0.20)
+        
+        # Slice support areas
+        for layer, s_areas in enumerate(supportAreas):
+            if s_areas:
+                s_poly = safe_unary_union(s_areas)
+                if not s_poly.is_empty:
+                    # Intersect support footprint with hatch
+                    s_lines = s_poly.intersection(unary_union(supportHatch))
+                    if s_lines.geom_type == 'LineString':
+                        optimizedSupportInfills[layer] = [s_lines]
+                    elif getattr(s_lines, 'geoms', None):
+                        optimizedSupportInfills[layer] = list(s_lines.geoms)
+        print("Support Volumes took ", time.time() - start_supp, "seconds.", "\n")
+
     del innerMostPolygonsList
     manifoldAreas = [[safe_unary_union(manifoldAreasDict[key])] for key in manifoldAreasDict]
     internalAreas = [[safe_unary_union(internalAreasDict[key])] for key in internalAreasDict]
@@ -834,7 +864,7 @@ def all_calculations(mesh, printSettings):
         except Exception as e:
             print("Error during non-planar projection:", e)
 
-    return transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills
+    return transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills, optimizedSupportInfills
 
 def all_5_axis_calculations(mesh, printSettings, slicingDirections):
     global slice_levels
@@ -1178,9 +1208,9 @@ def slice_in_3_axes(printSettings, meshData):
 
     layerNumbers = list(range(len(slice_levels)))  # Numerical indices corresponding to the layer number
 
-    transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills = all_calculations(mesh, printSettings)
+    transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills, optimizedSupportInfills = all_calculations(mesh, printSettings)
 
-    return transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills
+    return transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills, optimizedSupportInfills
 
 def slice_in_5_axes(printSettings, meshData, slicingDirections):
     global mesh, slice_levels, layerNumbers
@@ -1576,7 +1606,7 @@ def write_5_axis_gcode(newFile, savedFileName, printSettings, startingPositions,
     openFile.close()
 
 
-def write_3_axis_gcode(newFile, savedFileName, printSettings, transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills):
+def write_3_axis_gcode(newFile, savedFileName, printSettings, transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills, optimizedSupportInfills):
     global zHopState
 
     print("==================================================")
@@ -1818,6 +1848,19 @@ def write_3_axis_gcode(newFile, savedFileName, printSettings, transform3DList, a
                     transcribe_pathPoints_to_gcode(pathPoints, G1XY_FEEDRATE_INTERNALINFILL, runOnce)
                     runOnce = False
 
+            if enableSupports and optimizedSupportInfills[k] != []:
+                """ SUPPORT INFILL FEATURE TITLE """
+                openFile.write(";" + "Support Infill" + "\n")
+
+                supportInfills = [list(line.coords) for line in optimizedSupportInfills[k]]
+
+                runOnce = True
+                for suppInfill in supportInfills:
+                    pathPoints = suppInfill
+                    """ XYE COMMANDS """
+                    transcribe_pathPoints_to_gcode(pathPoints, G1XY_FEEDRATE_INTERNALINFILL, runOnce)
+                    runOnce = False
+
     """ FOOTER """
     openFile.write(";" + "FOOTER:" + "\n")
     openFile.write("G1 F" + str(E_FEEDRATE) + " E" + str(round(E - 2.0, 5)) + " ; Retract for end of print" + "\n")
@@ -1878,7 +1921,7 @@ def paths_to_3d_segments(layer_paths, transformation_matrices):  # Works with bo
         return np.zeros((0, 6))
 
 
-def convert_slice_data_to_renderable_vertices(transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills):
+def convert_slice_data_to_renderable_vertices(transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills, optimizedSupportInfills=None):
     print("Starting timer for plotting preparation (PARALLEL)")
     start = time.time()
 
@@ -1895,6 +1938,8 @@ def convert_slice_data_to_renderable_vertices(transform3DList, adhesionList, she
     solidInfillPath3D = paths_to_3d_segments([[ls[0] for ls in layer] for layer in optimizedSolidInfills], transform3DList)
 
     internalInfillPath3D = paths_to_3d_segments([[ls[0] for ls in layer] for layer in optimizedInternalInfills], transform3DList)
+    
+    supportInfillPath3D = paths_to_3d_segments(optimizedSupportInfills, transform3DList) if optimizedSupportInfills is not None else np.zeros((0, 6))
 
     del transform3DList, adhesionList, shellRingsListList, optimizedInternalInfills, optimizedSolidInfills
 
@@ -1902,11 +1947,12 @@ def convert_slice_data_to_renderable_vertices(transform3DList, adhesionList, she
     shellPathsCombined = shellPath3D
     internalInfillPathsCombined = internalInfillPath3D
     solidInfillPathsCombined = solidInfillPath3D
+    supportInfillPathsCombined = supportInfillPath3D
 
     end = time.time() - start
     print("Plotting preparation took ", end, "seconds.", "\n")
 
-    return adhesionPathsCombined, shellPathsCombined, internalInfillPathsCombined, solidInfillPathsCombined
+    return adhesionPathsCombined, shellPathsCombined, internalInfillPathsCombined, solidInfillPathsCombined, supportInfillPathsCombined
 
 
 # Set a safe number of workerBees (number of cores) to assign to parallel slicing computation tasks
