@@ -201,7 +201,7 @@ def toggle_viewMode_layout(parentWidget):
     currentViewMode = parentWidget.currentlyChecked # Prepare or Preview Mode
     printMode = R_viewMode.D_variables["printMode"]
     if currentViewMode == "Preview" and (transform3DList is not None or chunk_transform3DList is not None):
-        disable_all_settings() # Gray out all the entry boxes so the user can't change values in Preview mode
+
         """ Turning slice data into renderable vertices """
         if R_viewMode.preRendered == False: # If the toolpaths haven't been processed for rendering yet, process them, otherwise, don't do anything
                 
@@ -1350,7 +1350,7 @@ r0c0SettingsDeck = glooey.Deck(
     strength=Widget_Label("Infill %"),
     resolution=Widget_Label("Layer Height"),
     movement=Widget_Label("Print Speed"),
-    supports=Widget_Label("Enable Supports (NOT YET IMPLEMENTED)"),
+    supports=Widget_Label("Enable Supports"),
     adhesion=Widget_Label("Enable Brim"),
 )
 r0c1SettingsDeck = glooey.Deck(

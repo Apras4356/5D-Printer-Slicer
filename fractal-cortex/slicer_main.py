@@ -423,7 +423,11 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                 print('Clear VBOs')
                 self.Render_Preview.clear_toolpath_vbos()
                 sliceButtonDeck.get_widget("B_slice").clearVBOs = False
-                self.__class__.D_renderedToolpaths[k] = False
+                for stl_key in B_selectFile.D_variables:
+                    self.__class__.D_renderedToolpaths[stl_key] = False
+                
+                if R_viewMode.preRendered == False:
+                    toggle_viewMode_layout(R_viewMode)
 
             for k in B_selectFile.D_variables:
 
