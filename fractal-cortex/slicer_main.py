@@ -166,7 +166,7 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         self.multipleSelected = False
         self.updateTranslateText = False
         self.windowHeight = 720
-        self.windowWidth = 1080
+        self.windowWidth = 1200
 
         self.segments3D = []
 
@@ -335,9 +335,21 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         gluPerspective(45.0, (self.width) / float(self.height), 0.1, 1000.0)    # Defines the parameters of the viewing volume
         glMatrixMode(GL_MODELVIEW)                                              # Specifies matrix stack that will be used for subsequent matrix operations. GL_MODELVIEW is responsible for transforming the camera and models relative to each other
 
-        # Draw the circular disk (short cylinder)
-        cylinderColor = (159.0 / 255.0,226.0 / 255.0,191.0 / 255.0,0.8)                     # Translucent Jade
-        self.draw_cylinder(radius=150, height=3, slices=50, stacks=1, color=cylinderColor)  # Call the draw_cylinder method
+        # Draw the custom build plate
+        import widget_functions
+        cylinderColor = (159.0 / 255.0, 226.0 / 255.0, 191.0 / 255.0, 0.8)                     # Translucent Jade
+        if widget_functions.buildPlateShape == "circular":
+            self.draw_cylinder(radius=widget_functions.buildPlateX / 2.0, height=3, slices=50, stacks=1, color=cylinderColor)
+        else:
+            self.draw_cuboid(width=widget_functions.buildPlateX, depth=widget_functions.buildPlateY, height=3, color=cylinderColor)
+        
+        # Dynamic bounds mapping to prevent user dragging out of bounds
+        if widget_functions.buildPlateShape == "circular":
+            widget_functions.buildPlateBounds = [-widget_functions.buildPlateX/2.0, widget_functions.buildPlateX/2.0]
+        else:
+            # We assume X and Y bounds are similar for simplicity, or we can use max
+            max_bound = max(widget_functions.buildPlateX, widget_functions.buildPlateY) / 2.0
+            widget_functions.buildPlateBounds = [-max_bound, max_bound]
 
         """ Update STL variables """
         if (B_selectFile.D_variables != {}):                                                        # If the user has selected to open any STL files
@@ -668,6 +680,60 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         glEnable(GL_COLOR_MATERIAL)
         glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
         glColor4f(*widgetResetColor)
+
+    @staticmethod
+    def draw_cuboid(width, depth, height, color):
+        from pyglet.gl import glEnable, glColorMaterial, glColor4f, GL_COLOR_MATERIAL, GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, GL_QUADS, glBegin, glVertex3f, glEnd, glNormal3f
+        glEnable(GL_COLOR_MATERIAL)
+        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+        glColor4f(*color)
+        
+        hx = width / 2.0
+        hy = depth / 2.0
+        
+        glBegin(GL_QUADS)
+        # Top Face
+        glNormal3f(0.0, 0.0, 1.0)
+        glVertex3f(-hx, -hy, 0)
+        glVertex3f(hx, -hy, 0)
+        glVertex3f(hx, hy, 0)
+        glVertex3f(-hx, hy, 0)
+        
+        # Bottom Face
+        glNormal3f(0.0, 0.0, -1.0)
+        glVertex3f(-hx, -hy, -height)
+        glVertex3f(-hx, hy, -height)
+        glVertex3f(hx, hy, -height)
+        glVertex3f(hx, -hy, -height)
+        
+        # Front Face
+        glNormal3f(0.0, -1.0, 0.0)
+        glVertex3f(-hx, -hy, -height)
+        glVertex3f(hx, -hy, -height)
+        glVertex3f(hx, -hy, 0)
+        glVertex3f(-hx, -hy, 0)
+        
+        # Back Face
+        glNormal3f(0.0, 1.0, 0.0)
+        glVertex3f(-hx, hy, -height)
+        glVertex3f(-hx, hy, 0)
+        glVertex3f(hx, hy, 0)
+        glVertex3f(hx, hy, -height)
+        
+        # Left Face
+        glNormal3f(-1.0, 0.0, 0.0)
+        glVertex3f(-hx, -hy, -height)
+        glVertex3f(-hx, -hy, 0)
+        glVertex3f(-hx, hy, 0)
+        glVertex3f(-hx, hy, -height)
+        
+        # Right Face
+        glNormal3f(1.0, 0.0, 0.0)
+        glVertex3f(hx, -hy, -height)
+        glVertex3f(hx, hy, -height)
+        glVertex3f(hx, hy, 0)
+        glVertex3f(hx, -hy, 0)
+        glEnd()
 
     @staticmethod
     def draw_cylinder(radius, height, slices, stacks, color):
@@ -1647,7 +1713,7 @@ class User_Interaction:
 
 # Main function
 def main():
-    win = Graphics_Window(width=1080, height=720, resizable=True, caption="3D STL Viewer")  # Instantiate the custom defined pyglet window class, Graphics_Window
+    win = Graphics_Window(width=1200, height=720, resizable=True, caption="3D STL Viewer")  # Instantiate the custom defined pyglet window class, Graphics_Window
 
     original_resize = win.on_resize
 

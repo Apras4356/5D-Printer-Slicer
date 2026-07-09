@@ -41,6 +41,147 @@ font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Roboto-Reg
 pyglet.font.add_file(font_path)
 pyglet.font.load("Roboto")
 
+import json
+
+
+PRINTER_FILE = "printer.json"
+DEFAULT_PRINTER = {
+    "buildPlateShape": "rectangular",
+    "buildPlateX": 235.0,
+    "buildPlateY": 235.0,
+    "buildPlateZ": 250.0
+}
+
+if not os.path.exists(PRINTER_FILE):
+    with open(PRINTER_FILE, 'w') as f:
+        json.dump(DEFAULT_PRINTER, f, indent=4)
+        
+with open(PRINTER_FILE, 'r') as f:
+    printerConfig = json.load(f)
+
+buildPlateShape = printerConfig.get("buildPlateShape", "rectangular")
+buildPlateX = printerConfig.get("buildPlateX", 235.0)
+buildPlateY = printerConfig.get("buildPlateY", 235.0)
+buildPlateZ = printerConfig.get("buildPlateZ", 250.0)
+
+def save_printer_config():
+    global buildPlateShape, buildPlateX, buildPlateY, buildPlateZ, buildPlateBounds
+    config = {
+        "buildPlateShape": buildPlateShape,
+        "buildPlateX": buildPlateX,
+        "buildPlateY": buildPlateY,
+        "buildPlateZ": buildPlateZ
+    }
+    with open(PRINTER_FILE, 'w') as f:
+        json.dump(config, f, indent=4)
+    # Update bounds
+    if buildPlateShape == "circular":
+        buildPlateBounds = [-buildPlateX/2, buildPlateX/2]
+    else:
+        buildPlateBounds = [-buildPlateX/2, buildPlateX/2]
+
+save_printer_config() # initialize bounds
+
+PROFILES_FILE = "profiles.json"
+
+DEFAULT_PROFILES = {
+    "PLA": {
+        "type": "PLA",
+        "diameter": 1.75,
+        "softeningTemp": 45,
+        "idleTemp": 0,
+        "minNozzleTemp": 190,
+        "maxNozzleTemp": 240,
+        "enablePressureAdvance": False,
+        "chamberTemp": 0,
+        "activateChamberTemp": False,
+        "nozzleFirstLayer": 220,
+        "nozzleOtherLayers": 220,
+        "bedFirstLayer": 55,
+        "bedOtherLayers": 55
+    },
+    "Bambu PLA Basic": {
+        "type": "PLA",
+        "diameter": 1.75,
+        "softeningTemp": 45,
+        "idleTemp": 0,
+        "minNozzleTemp": 190,
+        "maxNozzleTemp": 240,
+        "enablePressureAdvance": False,
+        "chamberTemp": 0,
+        "activateChamberTemp": False,
+        "nozzleFirstLayer": 220,
+        "nozzleOtherLayers": 220,
+        "bedFirstLayer": 65,
+        "bedOtherLayers": 65
+    },
+    "Bambu PETG Basic": {
+        "type": "PETG",
+        "diameter": 1.75,
+        "softeningTemp": 68,
+        "idleTemp": 0,
+        "minNozzleTemp": 240,
+        "maxNozzleTemp": 270,
+        "enablePressureAdvance": False,
+        "chamberTemp": 0,
+        "activateChamberTemp": False,
+        "nozzleFirstLayer": 255,
+        "nozzleOtherLayers": 255,
+        "bedFirstLayer": 70,
+        "bedOtherLayers": 70
+    },
+    "Bambu ABS": {
+        "type": "ABS",
+        "diameter": 1.75,
+        "softeningTemp": 100,
+        "idleTemp": 0,
+        "minNozzleTemp": 240,
+        "maxNozzleTemp": 280,
+        "enablePressureAdvance": False,
+        "chamberTemp": 90,
+        "activateChamberTemp": False,
+        "nozzleFirstLayer": 270,
+        "nozzleOtherLayers": 270,
+        "bedFirstLayer": 90,
+        "bedOtherLayers": 90
+    },
+    "Bambu TPU 95A": {
+        "type": "TPU",
+        "diameter": 1.75,
+        "softeningTemp": 50,
+        "idleTemp": 0,
+        "minNozzleTemp": 200,
+        "maxNozzleTemp": 250,
+        "enablePressureAdvance": False,
+        "chamberTemp": 0,
+        "activateChamberTemp": False,
+        "nozzleFirstLayer": 240,
+        "nozzleOtherLayers": 240,
+        "bedFirstLayer": 35,
+        "bedOtherLayers": 35
+    }
+}
+
+def load_profiles():
+    if os.path.exists(PROFILES_FILE):
+        try:
+            with open(PROFILES_FILE, 'r') as f:
+                loaded = json.load(f)
+                for k, v in DEFAULT_PROFILES.items():
+                    if k not in loaded:
+                        loaded[k] = v
+                return loaded
+        except Exception:
+            pass
+    return dict(DEFAULT_PROFILES)
+
+def save_profiles():
+    with open(PROFILES_FILE, 'w') as f:
+        json.dump(filament_profiles, f, indent=4)
+
+filament_profiles = load_profiles()
+current_profile_name = list(filament_profiles.keys())[0]
+
 """ GLOBAL VARIABLES """
 # Geometry Action Variables
 translateX = 0.0
@@ -51,10 +192,27 @@ rotateY = 0.0
 rotateZ = 0.0
 scaleFactor = 100.0
 
-nozzleTemp = 200.0
-initialNozzleTemp = nozzleTemp + 5.0
-bedTemp = 60.0
-initialBedTemp = bedTemp + 5.0
+init_prof = filament_profiles[current_profile_name]
+
+filamentType = init_prof["type"]
+filamentDiameter = init_prof["diameter"]
+softeningTemp = init_prof["softeningTemp"]
+idleTemp = init_prof["idleTemp"]
+minNozzleTemp = init_prof["minNozzleTemp"]
+maxNozzleTemp = init_prof["maxNozzleTemp"]
+enablePressureAdvance = init_prof["enablePressureAdvance"]
+chamberTemp = init_prof["chamberTemp"]
+activateChamberTemp = init_prof["activateChamberTemp"]
+nozzleFirstLayer = init_prof["nozzleFirstLayer"]
+nozzleOtherLayers = init_prof["nozzleOtherLayers"]
+bedFirstLayer = init_prof["bedFirstLayer"]
+bedOtherLayers = init_prof["bedOtherLayers"]
+
+# Backwards compatibility globals
+nozzleTemp = nozzleOtherLayers
+initialNozzleTemp = nozzleFirstLayer
+bedTemp = bedOtherLayers
+initialBedTemp = bedFirstLayer
 infillPercentage = 20.0
 shellThickness = 3
 layerHeight = 0.3
@@ -111,6 +269,40 @@ def set_geometry_action_deck_states(currentState):
     r4c1GeometryActionDeck.set_state(currentState)
 
 def set_settings_deck_states(currentState):
+    for state in r0c0SettingsDeck.known_states:
+        r0c0SettingsDeck.set_state(state)
+        r0c1SettingsDeck.set_state(state)
+        r1c0SettingsDeck.set_state(state)
+        r1c1SettingsDeck.set_state(state)
+        r2c0SettingsDeck.set_state(state)
+        r2c1SettingsDeck.set_state(state)
+        r3c0SettingsDeck.set_state(state)
+        r3c1SettingsDeck.set_state(state)
+        r4c0SettingsDeck.set_state(state)
+        r4c1SettingsDeck.set_state(state)
+        r5c0SettingsDeck.set_state(state)
+        r5c1SettingsDeck.set_state(state)
+        r6c0SettingsDeck.set_state(state)
+        r6c1SettingsDeck.set_state(state)
+        r7c0SettingsDeck.set_state(state)
+        r7c1SettingsDeck.set_state(state)
+        r8c0SettingsDeck.set_state(state)
+        r8c1SettingsDeck.set_state(state)
+        r9c0SettingsDeck.set_state(state)
+        r9c1SettingsDeck.set_state(state)
+        r10c0SettingsDeck.set_state(state)
+        r10c1SettingsDeck.set_state(state)
+        r11c0SettingsDeck.set_state(state)
+        r11c1SettingsDeck.set_state(state)
+        r12c0SettingsDeck.set_state(state)
+        r12c1SettingsDeck.set_state(state)
+        r13c0SettingsDeck.set_state(state)
+        r13c1SettingsDeck.set_state(state)
+        r14c0SettingsDeck.set_state(state)
+        r14c1SettingsDeck.set_state(state)
+    
+    currentState = R_optionMode.currentlyChecked.lower()
+    
     r0c0SettingsDeck.set_state(currentState)
     r0c1SettingsDeck.set_state(currentState)
     r1c0SettingsDeck.set_state(currentState)
@@ -127,6 +319,20 @@ def set_settings_deck_states(currentState):
     r6c1SettingsDeck.set_state(currentState)
     r7c0SettingsDeck.set_state(currentState)
     r7c1SettingsDeck.set_state(currentState)
+    r8c0SettingsDeck.set_state(currentState)
+    r8c1SettingsDeck.set_state(currentState)
+    r9c0SettingsDeck.set_state(currentState)
+    r9c1SettingsDeck.set_state(currentState)
+    r10c0SettingsDeck.set_state(currentState)
+    r10c1SettingsDeck.set_state(currentState)
+    r11c0SettingsDeck.set_state(currentState)
+    r11c1SettingsDeck.set_state(currentState)
+    r12c0SettingsDeck.set_state(currentState)
+    r12c1SettingsDeck.set_state(currentState)
+    r13c0SettingsDeck.set_state(currentState)
+    r13c1SettingsDeck.set_state(currentState)
+    r14c0SettingsDeck.set_state(currentState)
+    r14c1SettingsDeck.set_state(currentState)
 
 transform3DList = None
 adhesionList = None
@@ -147,44 +353,74 @@ def disable_all_settings():
     r0c1SettingsDeck.get_widget("movement").set_disabled(True)
     r0c1SettingsDeck.get_widget("supports").set_disabled(True)
     r0c1SettingsDeck.get_widget("adhesion").set_disabled(True)
-
+    
     r1c1SettingsDeck.get_widget("material").set_disabled(True)
     r1c1SettingsDeck.get_widget("strength").set_disabled(True)
     r1c1SettingsDeck.get_widget("movement").set_disabled(True)
-
+    
     r2c1SettingsDeck.get_widget("material").set_disabled(True)
     r2c1SettingsDeck.get_widget("movement").set_disabled(True)
-
+    
     r3c1SettingsDeck.get_widget("material").set_disabled(True)
     r3c1SettingsDeck.get_widget("movement").set_disabled(True)
-
+    
+    r4c1SettingsDeck.get_widget("material").set_disabled(True)
     r4c1SettingsDeck.get_widget("movement").set_disabled(True)
+    
+    r5c1SettingsDeck.get_widget("material").set_disabled(True)
     r5c1SettingsDeck.get_widget("movement").set_disabled(True)
+    
+    r6c1SettingsDeck.get_widget("material").set_disabled(True)
     r6c1SettingsDeck.get_widget("movement").get_widget("enabled").set_disabled(True)
+    
+    r7c1SettingsDeck.get_widget("material").set_disabled(True)
     r7c1SettingsDeck.get_widget("movement").get_widget("enabled").set_disabled(True)
 
-def enable_all_settings():
+    r8c1SettingsDeck.get_widget("material").set_disabled(True)
+    r9c1SettingsDeck.get_widget("material").set_disabled(True)
+    r10c1SettingsDeck.get_widget("material").set_disabled(True)
+    r11c1SettingsDeck.get_widget("material").set_disabled(True)
+    r12c1SettingsDeck.get_widget("material").set_disabled(True)
+    r13c1SettingsDeck.get_widget("material").set_disabled(True)
+    r14c1SettingsDeck.get_widget("material").set_disabled(True)
+
+def ungray_all_settings_widgets():
     r0c1SettingsDeck.get_widget("material").set_disabled(False)
     r0c1SettingsDeck.get_widget("strength").set_disabled(False)
     r0c1SettingsDeck.get_widget("resolution").set_disabled(False)
     r0c1SettingsDeck.get_widget("movement").set_disabled(False)
     r0c1SettingsDeck.get_widget("supports").set_disabled(False)
     r0c1SettingsDeck.get_widget("adhesion").set_disabled(False)
-
+    
     r1c1SettingsDeck.get_widget("material").set_disabled(False)
     r1c1SettingsDeck.get_widget("strength").set_disabled(False)
     r1c1SettingsDeck.get_widget("movement").set_disabled(False)
-
+    
     r2c1SettingsDeck.get_widget("material").set_disabled(False)
     r2c1SettingsDeck.get_widget("movement").set_disabled(False)
-
+    
     r3c1SettingsDeck.get_widget("material").set_disabled(False)
     r3c1SettingsDeck.get_widget("movement").set_disabled(False)
-
+    
+    r4c1SettingsDeck.get_widget("material").set_disabled(False)
     r4c1SettingsDeck.get_widget("movement").set_disabled(False)
+    
+    r5c1SettingsDeck.get_widget("material").set_disabled(False)
     r5c1SettingsDeck.get_widget("movement").set_disabled(False)
+    
+    r6c1SettingsDeck.get_widget("material").set_disabled(False)
     r6c1SettingsDeck.get_widget("movement").get_widget("enabled").set_disabled(False)
+    
+    r7c1SettingsDeck.get_widget("material").set_disabled(False)
     r7c1SettingsDeck.get_widget("movement").get_widget("enabled").set_disabled(False)
+
+    r8c1SettingsDeck.get_widget("material").set_disabled(False)
+    r9c1SettingsDeck.get_widget("material").set_disabled(False)
+    r10c1SettingsDeck.get_widget("material").set_disabled(False)
+    r11c1SettingsDeck.get_widget("material").set_disabled(False)
+    r12c1SettingsDeck.get_widget("material").set_disabled(False)
+    r13c1SettingsDeck.get_widget("material").set_disabled(False)
+    r14c1SettingsDeck.get_disabled(False)
 
 def toggle_viewMode_layout(parentWidget):
     global \
@@ -286,6 +522,9 @@ def toggle_settings_layout(parentWidget):
     elif selectedMenu == "Adhesion":
         currentState = "adhesion"
 
+    elif selectedMenu == "Printer":
+        currentState = "printer"
+
     settingsState = currentState
     set_settings_deck_states(currentState)
 
@@ -296,6 +535,7 @@ def apply_placeholder():
     pass
 
 def update_values():
+    global buildPlateShape, buildPlateX, buildPlateY, buildPlateZ
     global nozzleTemp, E_nozzleTemp, initialNozzleTemp, E_initialNozzleTemp, bedTemp, E_bedTemp, initialBedTemp, E_initialBedTemp
     global infillPercentage, E_infillPercentage, shellThickness, E_shellThickness
     global layerHeight, E_layerHeight
@@ -320,10 +560,49 @@ def update_values():
     global enableBrim, C_enableBrim
     global enableNonPlanarTopSurfaces, nozzleTipDiameter, nozzleShoulderWidth, nozzleAngle
     try:
-        nozzleTemp = r0c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
-        initialNozzleTemp = r1c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
-        bedTemp = r2c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
-        initialBedTemp = r3c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        filamentDiameter = r3c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        softeningTemp = r4c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        idleTemp = r5c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        minNozzleTemp = r6c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        maxNozzleTemp = r7c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        enablePressureAdvance = r8c1SettingsDeck.get_widget("material").is_checked
+        chamberTemp = r9c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        activateChamberTemp = r10c1SettingsDeck.get_widget("material").is_checked
+        nozzleFirstLayer = r11c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        nozzleOtherLayers = r12c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        bedFirstLayer = r13c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        bedOtherLayers = r14c1SettingsDeck.get_widget("material").entryBoxEditableLabel.get_text()
+        
+        # update backwards compatibility fields
+        nozzleTemp = nozzleOtherLayers
+        initialNozzleTemp = nozzleFirstLayer
+        bedTemp = bedOtherLayers
+        initialBedTemp = bedFirstLayer
+
+        try:
+            buildPlateShape = r0c1SettingsDeck.get_widget("printer").currentChoice
+            buildPlateX = float(r1c1SettingsDeck.get_widget("printer").entryBoxEditableLabel.get_text())
+            buildPlateY = float(r2c1SettingsDeck.get_widget("printer").entryBoxEditableLabel.get_text())
+            buildPlateZ = float(r3c1SettingsDeck.get_widget("printer").entryBoxEditableLabel.get_text())
+            save_printer_config()
+        except:
+            pass
+        
+        # Auto-save changes to the profile
+        prof = filament_profiles[current_profile_name]
+        prof["diameter"] = float(filamentDiameter)
+        prof["softeningTemp"] = float(softeningTemp)
+        prof["idleTemp"] = float(idleTemp)
+        prof["minNozzleTemp"] = float(minNozzleTemp)
+        prof["maxNozzleTemp"] = float(maxNozzleTemp)
+        prof["enablePressureAdvance"] = enablePressureAdvance
+        prof["chamberTemp"] = float(chamberTemp)
+        prof["activateChamberTemp"] = activateChamberTemp
+        prof["nozzleFirstLayer"] = float(nozzleFirstLayer)
+        prof["nozzleOtherLayers"] = float(nozzleOtherLayers)
+        prof["bedFirstLayer"] = float(bedFirstLayer)
+        prof["bedOtherLayers"] = float(bedOtherLayers)
+        save_profiles()
     except:
         pass
     try:
@@ -965,6 +1244,13 @@ def update_placeholder():
 
 """ Functions for adding widgets """
 
+
+def safe_board_add(board, widget, **kwargs):
+    if widget in board._pins:
+        board.move(widget, **kwargs)
+    else:
+        board.add(widget, **kwargs)
+
 def enable_3_axis_mode():
     R_optionMode.D_variables['numSlicingDirections'] = 1
     R_optionMode.D_variables['startingPositions'] = [[0.0, 0.0, 0.0]]
@@ -976,118 +1262,190 @@ def enable_3_axis_mode():
         w.hide()
     lowerLine.hide()
     slicingDirectionBoard.clear()
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         R_optionMode,
         center_x_percent=0.5,
         top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical,
     )
-    settingsBoard.add(
+    menuTopY = 510
+    rowSpacing = 32
+    menuTopY = 560
+    rowSpacing = 30
+    safe_board_add(settingsBoard, 
         r0c0SettingsDeck,
         left=widgetBufferRight,
-        top=13 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 0 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r0c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=13 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 0 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r1c0SettingsDeck,
         left=widgetBufferRight,
-        top=12 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 1 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r1c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=12 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 1 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r2c0SettingsDeck,
         left=widgetBufferRight,
-        top=11 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 2 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r2c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=11 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 2 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r3c0SettingsDeck,
         left=widgetBufferRight,
-        top=10 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 3 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r3c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=10 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 3 * rowSpacing,
     )
-
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r4c0SettingsDeck,
         left=widgetBufferRight,
-        top=9 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 4 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r4c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=9 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 4 * rowSpacing,
     )
-    
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r5c0SettingsDeck,
         left=widgetBufferRight,
-        top=8 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 5 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r5c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=8 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 5 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r6c0SettingsDeck,
         left=widgetBufferRight,
-        top=7 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 6 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r6c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=7 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 6 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r7c0SettingsDeck,
         left=widgetBufferRight,
-        top=6 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 7 * rowSpacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r7c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=6 * widgetHeightSpacing - widgetBufferVertical - 18,
+        top=menuTopY - 7 * rowSpacing,
     )
-    
+    safe_board_add(settingsBoard, 
+        r8c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 8 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r8c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 8 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r9c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 9 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r9c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 9 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r10c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 10 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r10c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 10 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r11c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 11 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r11c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 11 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r12c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 12 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r12c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 12 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r13c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 13 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r13c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 13 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r14c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 14 * rowSpacing,
+    )
+    safe_board_add(settingsBoard, 
+        r14c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 14 * rowSpacing,
+    )
+
     cycle_decks(0, 0)
 
 def display_starting_box():
-    settingsBoard.add(I_startingBox, center_x_percent=0.5, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical)
-    slicingDirectionBoard.add(S_numSlicingDirections, left=285, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13,)
-    slicingDirectionBoard.add(B_numSlicingDirections, left=355, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11,)
+    safe_board_add(settingsBoard, I_startingBox, center_x_percent=0.5, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical)
+    safe_board_add(slicingDirectionBoard, S_numSlicingDirections, left=285, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13,)
+    safe_board_add(slicingDirectionBoard, B_numSlicingDirections, left=355, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11,)
 
 def display_slicing_directions_box():
     height = 320
 
-    rightToolBarBoard.add(I_slicingDirectionBox, left=21, bottom=5)
+    safe_board_add(rightToolBarBoard, I_slicingDirectionBox, left=21, bottom=5)
 
-    rightToolBarTopBoard.add(S_currentSlicingDirection, left=285, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13)
+    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13)
     S_currentSlicingDirection.update_maxValue(int(numSlicingDirections))  # Update the size of slicingDirectionList
 
-    rightToolBarTopBoard.add(B_addNew, left=352, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11)
-    rightToolBarTopBoard.add(B_remove, left=391, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11)
-    rightToolBarTopBoard.add(B_removeAll, left=229, top=height - 275)
+    safe_board_add(rightToolBarTopBoard, B_addNew, left=352, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11)
+    safe_board_add(rightToolBarTopBoard, B_remove, left=391, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11)
+    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229, top=height - 275)
 
-    rightToolBarTopBoard.add(S_startingX, left=90, top=height - 180)
-    rightToolBarTopBoard.add(S_startingY, left=90, top=height - 220)
-    rightToolBarTopBoard.add(S_startingZ, left=90, top=height - 260)
-    rightToolBarTopBoard.add(S_theta, left=285, top=height - 180)
-    rightToolBarTopBoard.add(S_phi, left=285, top=height - 220)
+    safe_board_add(rightToolBarTopBoard, S_startingX, left=90, top=height - 180)
+    safe_board_add(rightToolBarTopBoard, S_startingY, left=90, top=height - 220)
+    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90, top=height - 260)
+    safe_board_add(rightToolBarTopBoard, S_theta, left=285, top=height - 180)
+    safe_board_add(rightToolBarTopBoard, S_phi, left=285, top=height - 220)
 
 def enable_5_axis_mode():
     global numSlicingDirections, startingPositions, directions
@@ -1114,95 +1472,169 @@ def enable_5_axis_mode():
             w.unhide()
 
     lowerLine.unhide()
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         lowerLine,
         left=0,
         top=baseGridTop - 2 * widgetHeightSpacing - widgetBufferVertical - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         R_optionMode,
         center_x_percent=0.5,
         top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - spacing,
     )
-    settingsBoard.add(
+    menuTopY = 510
+    rowSpacing = 32
+    menuTopY = 560
+    rowSpacing = 30
+    safe_board_add(settingsBoard, 
         r0c0SettingsDeck,
         left=widgetBufferRight,
-        top=13 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 0 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r0c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=13 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 0 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r1c0SettingsDeck,
         left=widgetBufferRight,
-        top=12 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 1 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r1c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=12 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 1 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r2c0SettingsDeck,
         left=widgetBufferRight,
-        top=11 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 2 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r2c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=11 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 2 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r3c0SettingsDeck,
         left=widgetBufferRight,
-        top=10 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 3 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r3c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=10 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 3 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r4c0SettingsDeck,
         left=widgetBufferRight,
-        top=9 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 4 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r4c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=9 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 4 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r5c0SettingsDeck,
         left=widgetBufferRight,
-        top=8 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 5 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r5c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=8 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 5 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r6c0SettingsDeck,
         left=widgetBufferRight,
-        top=7 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 6 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r6c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=7 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 6 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r7c0SettingsDeck,
         left=widgetBufferRight,
-        top=6 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 7 * rowSpacing - spacing,
     )
-    settingsBoard.add(
+    safe_board_add(settingsBoard, 
         r7c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=6 * widgetHeightSpacing - widgetBufferVertical - 15 - spacing,
+        top=menuTopY - 7 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r8c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 8 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r8c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 8 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r9c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 9 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r9c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 9 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r10c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 10 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r10c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 10 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r11c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 11 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r11c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 11 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r12c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 12 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r12c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 12 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r13c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 13 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r13c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 13 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r14c0SettingsDeck,
+        left=widgetBufferRight,
+        top=menuTopY - 14 * rowSpacing - spacing,
+    )
+    safe_board_add(settingsBoard, 
+        r14c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 14 * rowSpacing - spacing,
     )
     
     cycle_decks(0, 0)
@@ -1261,10 +1693,10 @@ def initialize_all_widgets(gui, windowHeight):
     leftToolBarTopBoard.add(r4c0GeometryActionDeck,left=70, bottom=115 - 3 * popUpWidgetHeightSpacing + 15)
     leftToolBarTopBoard.add(r4c1GeometryActionDeck,left=85, bottom=115 - 3 * popUpWidgetHeightSpacing + 10)
     # R1 C1
-    settingsBoard.add(L_settingsTitle, center_x_percent=0.5, top=baseGridTop - widgetBufferVertical)
-    settingsBoard.add(Black_Underline_Frame(), left=0, top=baseGridTop - widgetHeightSpacing)
-    settingsBoard.add(R_printMode, center_x_percent=0.5, top=baseGridTop - widgetHeightSpacing - widgetBufferVertical)
-    settingsBoard.add(Gray_Underline_Frame(), left=0, top=baseGridTop - 2 * widgetHeightSpacing - widgetBufferVertical)
+    safe_board_add(settingsBoard, L_settingsTitle, center_x_percent=0.5, top=baseGridTop - widgetBufferVertical)
+    safe_board_add(settingsBoard, Black_Underline_Frame(), left=0, top=baseGridTop - widgetHeightSpacing)
+    safe_board_add(settingsBoard, R_printMode, center_x_percent=0.5, top=baseGridTop - widgetHeightSpacing - widgetBufferVertical)
+    safe_board_add(settingsBoard, Gray_Underline_Frame(), left=0, top=baseGridTop - 2 * widgetHeightSpacing - widgetBufferVertical)
     enable_5_axis_mode()  # Default mode provides starter 5-axis options
 
     viewportGrid.set_col_width(1, 420)
@@ -1276,7 +1708,7 @@ def initialize_all_widgets(gui, windowHeight):
     # R2 C0
 
     # R2 C1
-    settingsBoard.add(sliceButtonDeck, center_x_percent=0.5, bottom=2 * widgetBufferVertical)
+    safe_board_add(settingsBoard, sliceButtonDeck, center_x_percent=0.5, bottom=2 * widgetBufferVertical)
 
 """ WIDGET DEFINITIONS """
 # CONTAINER WIDGETS:
@@ -1449,6 +1881,7 @@ optionModeNames = [
     "Movement",
     "Supports",
     "Adhesion",
+    "Printer",
 ]
 optionModeImages = [
     [
@@ -1486,6 +1919,12 @@ optionModeImages = [
         "image_resources/optionMode_Radio_Button_Images/adhesion/R_uncheckedOver.png",
         "image_resources/optionMode_Radio_Button_Images/adhesion/R_uncheckedDown.png",
         "image_resources/optionMode_Radio_Button_Images/adhesion/R_checked.png",
+    ],
+    [
+        "image_resources/optionMode_Radio_Button_Images/printer/R_uncheckedBase.png",
+        "image_resources/optionMode_Radio_Button_Images/printer/R_uncheckedOver.png",
+        "image_resources/optionMode_Radio_Button_Images/printer/R_uncheckedDown.png",
+        "image_resources/optionMode_Radio_Button_Images/printer/R_checked.png",
     ],
 ]
 
@@ -1536,119 +1975,167 @@ viewModeImages = [
 viewModeDefaultIndex = 0
 viewModeState = "prepare"
 
+def on_filament_profile_changed(new_profile_name):
+    global current_profile_name, filamentType, filamentDiameter, softeningTemp, idleTemp, minNozzleTemp, maxNozzleTemp
+    global enablePressureAdvance, chamberTemp, activateChamberTemp, nozzleFirstLayer, nozzleOtherLayers, bedFirstLayer, bedOtherLayers
+    global nozzleTemp, initialNozzleTemp, bedTemp, initialBedTemp
+    current_profile_name = new_profile_name
+    prof = filament_profiles[current_profile_name]
+    filamentType = prof.get("type", "PLA")
+    filamentDiameter = prof.get("diameter", 1.75)
+    softeningTemp = prof.get("softeningTemp", 45)
+    idleTemp = prof.get("idleTemp", 0)
+    minNozzleTemp = prof.get("minNozzleTemp", 190)
+    maxNozzleTemp = prof.get("maxNozzleTemp", 240)
+    enablePressureAdvance = prof.get("enablePressureAdvance", False)
+    chamberTemp = prof.get("chamberTemp", 0)
+    activateChamberTemp = prof.get("activateChamberTemp", False)
+    nozzleFirstLayer = prof.get("nozzleFirstLayer", 220)
+    nozzleOtherLayers = prof.get("nozzleOtherLayers", 220)
+    bedFirstLayer = prof.get("bedFirstLayer", 55)
+    bedOtherLayers = prof.get("bedOtherLayers", 55)
+    
+    # Backwards compatibility
+    nozzleTemp = nozzleOtherLayers
+    initialNozzleTemp = nozzleFirstLayer
+    bedTemp = bedOtherLayers
+    initialBedTemp = bedFirstLayer
+
+    r2c1SettingsDeck.get_widget("material").set_text(filamentType)
+    r3c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(filamentDiameter))
+    r4c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(softeningTemp))
+    r5c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(idleTemp))
+    r6c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(minNozzleTemp))
+    r7c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(maxNozzleTemp))
+    if enablePressureAdvance:
+        r8c1SettingsDeck.get_widget("material").check()
+    else:
+        r8c1SettingsDeck.get_widget("material").uncheck()
+    r9c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(chamberTemp))
+    if activateChamberTemp:
+        r10c1SettingsDeck.get_widget("material").check()
+    else:
+        r10c1SettingsDeck.get_widget("material").uncheck()
+    r11c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(nozzleFirstLayer))
+    r12c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(nozzleOtherLayers))
+    r13c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(bedFirstLayer))
+    r14c1SettingsDeck.get_widget("material").entryBoxEditableLabel.set_text(str(bedOtherLayers))
+
+
 # Define widget decks for all rows and columns of all settings menu layout states
 defaultState = "material"
 r0c0SettingsDeck = glooey.Deck(
     defaultState,
-    material=Widget_Label("Nozzle Temperature"),
+    material=Widget_Label("Filament Profile"),
     strength=Widget_Label("Infill %"),
     resolution=Widget_Label("Layer Height"),
     movement=Widget_Label("Print Speed"),
     supports=Widget_Label("Enable Supports"),
     adhesion=Widget_Label("Enable Brim"),
-)
+    printer=Widget_Label('Plate Shape'))
+filamentProfileMenu = Drop_Down_Menu(list(filament_profiles.keys()), settingsBoard, "Upper", on_selection_changed=on_filament_profile_changed)
 r0c1SettingsDeck = glooey.Deck(
     defaultState,
-    material=Entry_Box(str(nozzleTemp), 100.0, 250.0, "°C"),
+    material=filamentProfileMenu,
     strength=Entry_Box(str(infillPercentage), 0.0, 100.0, "%"),
     resolution=Entry_Box(str(layerHeight), 0.05, 2.0, "mm"),
     movement=Entry_Box(str(printSpeed), 5.0, 300.0, "mm/s"),
     supports=Checkbox(),
     adhesion=Checkbox(),
-)
+    printer=Drop_Down_Menu(['rectangular', 'circular'], settingsBoard, 'Upper'))
 r1c0SettingsDeck = glooey.Deck(
     defaultState,
-    material=Widget_Label("    Initial Nozzle Temperature"),
+    material=Widget_Label("Save Profile Name"),
     strength=Widget_Label("Shell Thickness"),
     resolution=Widget_Label("Enable Non-Planar Tops"),
     movement=Widget_Label("    Initial Print Speed"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Widget_Label('X / Diameter'))
 r1c1SettingsDeck = glooey.Deck(
     defaultState,
-    material=Entry_Box(str(initialNozzleTemp), 100.0, 250.0, "°C"),
+    material=Widget_Label("(Auto-saves on change)"),
     strength=Entry_Box(str(shellThickness), 1, 10, "layers"),
     resolution=Checkbox(),
     movement=Entry_Box(str(initialPrintSpeed), 5.0, 300.0, "mm/s"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Entry_Box(str(buildPlateX), 10.0, 1000.0, 'mm'))
 r2c0SettingsDeck = glooey.Deck(
     defaultState,
-    material=Widget_Label("Print Bed Temperature"),
+    material=Widget_Label("Type (PLA, PETG, ABS...)"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=Widget_Label("Travel Speed"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Widget_Label('Y / Depth'))
 r2c1SettingsDeck = glooey.Deck(
     defaultState,
-    material=Entry_Box(str(bedTemp), 10.0, 70.0, "°C"),
+    material=Widget_Label(filamentType),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=Entry_Box(str(travelSpeed), 5.0, 300.0, "mm/s"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Entry_Box(str(buildPlateY), 10.0, 1000.0, 'mm'))
 #
 r3c0SettingsDeck = glooey.Deck(
     defaultState,
-    material=Widget_Label("    Initial Print Bed Temperature"),
+    material=Widget_Label("Diameter"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=Widget_Label("    Initial Travel Speed"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Widget_Label('Z (Height)'))
 r3c1SettingsDeck = glooey.Deck(
     defaultState,
-    material=Entry_Box(str(initialBedTemp), 10.0, 70.0, "°C"),
+    material=Entry_Box(str(filamentDiameter), 1.0, 3.0, "mm"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=Entry_Box(str(initialTravelSpeed), 5.0, 300.0, "mm/s"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Entry_Box(str(buildPlateZ), 10.0, 1000.0, 'mm'))
 #
 r4c0SettingsDeck = glooey.Deck(
     defaultState,
-    material=Light_Gray_Background(),
+    material=Widget_Label("Softening Temperature"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=Widget_Label("Enable Z-Hop When Travelling"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Light_Gray_Background())
 r4c1SettingsDeck = glooey.Deck(
     defaultState,
-    material=Light_Gray_Background(),
+    material=Entry_Box(str(softeningTemp), 20.0, 300.0, "°C"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=Checkbox(),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Light_Gray_Background())
 #
 r5c0SettingsDeck = glooey.Deck(
     defaultState,
-    material=Light_Gray_Background(),
+    material=Widget_Label("Idle Temperature"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=Widget_Label("Enable Retraction"),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Light_Gray_Background())
 r5c1SettingsDeck = glooey.Deck(
     defaultState,
-    material=Light_Gray_Background(),
+    material=Entry_Box(str(idleTemp), 0.0, 300.0, "°C"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=Checkbox(),
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Light_Gray_Background())
 
 r6c0MovementDeck = glooey.Deck( # This deck is nested so that it only becomes visible if retraction is checked
     defaultState,
@@ -1658,13 +2145,13 @@ r6c0MovementDeck = glooey.Deck( # This deck is nested so that it only becomes vi
 
 r6c0SettingsDeck = glooey.Deck(
     defaultState,
-    material=Light_Gray_Background(),
+    material=Widget_Label("Min Nozzle Temperature"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=r6c0MovementDeck,
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Light_Gray_Background())
 
 r6c1MovementDeck = glooey.Deck( # This deck is nested so that it only becomes visible if retraction is checked
     defaultState,
@@ -1674,14 +2161,15 @@ r6c1MovementDeck = glooey.Deck( # This deck is nested so that it only becomes vi
 
 r6c1SettingsDeck = glooey.Deck(
     defaultState,
-    material=Light_Gray_Background(),
+    material=Entry_Box(str(minNozzleTemp), 100.0, 400.0, "°C"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=r6c1MovementDeck,
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Light_Gray_Background())
 
+#
 r7c0MovementDeck = glooey.Deck( # This deck is nested so that it only becomes visible if retraction is checked
     defaultState,
     enabled=Widget_Label("    Retraction Speed"),
@@ -1690,29 +2178,168 @@ r7c0MovementDeck = glooey.Deck( # This deck is nested so that it only becomes vi
 
 r7c0SettingsDeck = glooey.Deck(
     defaultState,
-    material=Light_Gray_Background(),
+    material=Widget_Label("Max Nozzle Temperature"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=r7c0MovementDeck,
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
-
+    printer=Light_Gray_Background())
 r7c1MovementDeck = glooey.Deck( # This deck is nested so that it only becomes visible if retraction is checked
     defaultState,
     enabled=Entry_Box(str(retractionSpeed), 5.0, 60.0, "mm/s"),
     disabled=Light_Gray_Background(),
 )
-
 r7c1SettingsDeck = glooey.Deck(
     defaultState,
-    material=Light_Gray_Background(),
+    material=Entry_Box(str(maxNozzleTemp), 100.0, 400.0, "°C"),
     strength=Light_Gray_Background(),
     resolution=Light_Gray_Background(),
     movement=r7c1MovementDeck,
     supports=Light_Gray_Background(),
     adhesion=Light_Gray_Background(),
-)
+    printer=Light_Gray_Background())
+
+r8c0SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Widget_Label('Enable Pressure Advance'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r8c1SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Checkbox(),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r9c0SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Widget_Label('Chamber Temperature'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r9c1SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Entry_Box(str(chamberTemp), 0.0, 200.0, '°C'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r10c0SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Widget_Label('Activate Chamber Temp'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r10c1SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Checkbox(),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r11c0SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Widget_Label('Nozzle Temp First Layer'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r11c1SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Entry_Box(str(nozzleFirstLayer), 100.0, 400.0, '°C'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r12c0SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Widget_Label('Nozzle Temp Other Layers'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r12c1SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Entry_Box(str(nozzleOtherLayers), 100.0, 400.0, '°C'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r13c0SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Widget_Label('Bed Temp First Layer'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r13c1SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Entry_Box(str(bedFirstLayer), 0.0, 200.0, '°C'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r14c0SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Widget_Label('Bed Temp Other Layers'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
+r14c1SettingsDeck = glooey.Deck(
+    defaultState,
+    material=Entry_Box(str(bedOtherLayers), 0.0, 200.0, '°C'),
+    strength=Light_Gray_Background(),
+    resolution=Light_Gray_Background(),
+    movement=Light_Gray_Background(),
+    supports=Light_Gray_Background(),
+    adhesion=Light_Gray_Background()
+,
+    printer=Light_Gray_Background())
 
 r1c0SettingsDeck.get_widget("material").set_style(italic=True)
 r1c0SettingsDeck.get_widget("movement").set_style(italic=True)
@@ -1943,3 +2570,18 @@ geometryActionPopUpBox = Custom_Image(
     "image_resources/geometryActionPopUpBox_Images/background.png"
 )
 # R2 C1
+
+settings_are_enabled = True
+
+def enable_all_settings():
+    global settings_are_enabled
+    if not settings_are_enabled:
+        cycle_decks(0, 0)
+        settings_are_enabled = True
+
+def disable_all_settings():
+    global settings_are_enabled
+    if settings_are_enabled:
+        set_settings_deck_states(True)
+        settings_are_enabled = False
+

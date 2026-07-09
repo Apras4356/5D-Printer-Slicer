@@ -592,11 +592,12 @@ class Drop_Down_Menu(glooey.Widget):
         custom_font_name = "Roboto"
         custom_bold = False
 
-    def __init__(self, options, parentStack, stackLevel):
+    def __init__(self, options, parentStack, stackLevel, on_selection_changed=None):
         super().__init__()
         self.options = options  # List of strings. Each string represents an option
         self.parentStack = parentStack  # The stack this drop down menu was added to
         self.stackLevel = stackLevel  # Is the drop down menu above or below the layer of the other drop down menu
+        self.on_selection_changed = on_selection_changed # Callback when a new option is selected
         self.opened = (
             False  # Keeps track of whether the drop down menu is opened or not
         )
@@ -687,9 +688,23 @@ class Drop_Down_Menu(glooey.Widget):
     def update_selection(
         self, k
     ):  # Update the selected option to whatever was selected
-        self.selectedOption.clear()
+        if self.currentSelection != k:
+            self.selectedOption.clear()
 
-        self.currentSelection = k
+            self.currentSelection = k
+            self.selectedOptionLabel = self.Selected_Option_Label(
+                self.options[self.currentSelection]
+            )
+            self.selectedOption.add(self.selectedOptionLabel)
+            
+            if self.on_selection_changed is not None:
+                self.on_selection_changed(self.options[k])
+
+    def set_options(self, options, current_selection_index=0):
+        # Update the available options dynamically
+        self.options = options
+        self.currentSelection = current_selection_index
+        self.selectedOption.clear()
         self.selectedOptionLabel = self.Selected_Option_Label(
             self.options[self.currentSelection]
         )
