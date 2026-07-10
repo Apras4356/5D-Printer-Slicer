@@ -1265,12 +1265,10 @@ def enable_3_axis_mode():
     safe_board_add(settingsBoard, 
         R_optionMode,
         center_x_percent=0.5,
-        top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical,
+        top=530,
     )
-    menuTopY = 510
-    rowSpacing = 32
-    menuTopY = 560
-    rowSpacing = 30
+    menuTopY = 495
+    rowSpacing = 25
     safe_board_add(settingsBoard, 
         r0c0SettingsDeck,
         left=widgetBufferRight,
@@ -1425,9 +1423,9 @@ def enable_3_axis_mode():
     cycle_decks(0, 0)
 
 def display_starting_box():
-    safe_board_add(settingsBoard, I_startingBox, center_x_percent=0.5, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical)
-    safe_board_add(slicingDirectionBoard, S_numSlicingDirections, left=285, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13,)
-    safe_board_add(slicingDirectionBoard, B_numSlicingDirections, left=355, top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11,)
+    safe_board_add(settingsBoard, I_startingBox, center_x_percent=0.5, top=530)
+    safe_board_add(slicingDirectionBoard, S_numSlicingDirections, left=285, top=530 - 13)
+    safe_board_add(slicingDirectionBoard, B_numSlicingDirections, left=355, top=530 - 11)
 
 def display_slicing_directions_box():
     height = 320
@@ -1472,169 +1470,188 @@ def enable_5_axis_mode():
             w.unhide()
 
     lowerLine.unhide()
+    numSlicingDirections = R_optionMode.D_variables.get('numSlicingDirections', 1)
+    
+    if (numSlicingDirections == 1):
+        spacing = 68
+        display_starting_box()
+        B_numSlicingDirections.D_variables['applied'] = False
+        for w in slicingDirectionsBoxWidgets:
+            w.hide()
+        for w in startingBoxWidgets:
+            w.unhide()
+    else:
+        B_numSlicingDirections.D_variables['applied'] = True
+        spacing = 0
+        display_slicing_directions_box()
+        for w in startingBoxWidgets:
+            w.hide()
+        for w in slicingDirectionsBoxWidgets:
+            w.unhide()
+            
+    lowerLine.unhide()
     safe_board_add(settingsBoard, 
         lowerLine,
         left=0,
-        top=baseGridTop - 2 * widgetHeightSpacing - widgetBufferVertical - spacing,
+        top=530 - spacing,
     )
     safe_board_add(settingsBoard, 
         R_optionMode,
         center_x_percent=0.5,
-        top=baseGridTop - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - spacing,
+        top=530 - spacing,
     )
-    menuTopY = 510
-    rowSpacing = 32
-    menuTopY = 560
-    rowSpacing = 30
+    menuTopY = 495 - spacing
+    rowSpacing = 25
+    
     safe_board_add(settingsBoard, 
         r0c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 0 * rowSpacing - spacing,
+        top=menuTopY - 0 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r0c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 0 * rowSpacing - spacing,
+        top=menuTopY - 0 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r1c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 1 * rowSpacing - spacing,
+        top=menuTopY - 1 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r1c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 1 * rowSpacing - spacing,
+        top=menuTopY - 1 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r2c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 2 * rowSpacing - spacing,
+        top=menuTopY - 2 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r2c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 2 * rowSpacing - spacing,
+        top=menuTopY - 2 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r3c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 3 * rowSpacing - spacing,
+        top=menuTopY - 3 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r3c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 3 * rowSpacing - spacing,
+        top=menuTopY - 3 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r4c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 4 * rowSpacing - spacing,
+        top=menuTopY - 4 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r4c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 4 * rowSpacing - spacing,
+        top=menuTopY - 4 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r5c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 5 * rowSpacing - spacing,
+        top=menuTopY - 5 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r5c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 5 * rowSpacing - spacing,
+        top=menuTopY - 5 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r6c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 6 * rowSpacing - spacing,
+        top=menuTopY - 6 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r6c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 6 * rowSpacing - spacing,
+        top=menuTopY - 6 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r7c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 7 * rowSpacing - spacing,
+        top=menuTopY - 7 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r7c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 7 * rowSpacing - spacing,
+        top=menuTopY - 7 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r8c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 8 * rowSpacing - spacing,
+        top=menuTopY - 8 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r8c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 8 * rowSpacing - spacing,
+        top=menuTopY - 8 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r9c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 9 * rowSpacing - spacing,
+        top=menuTopY - 9 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r9c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 9 * rowSpacing - spacing,
+        top=menuTopY - 9 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r10c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 10 * rowSpacing - spacing,
+        top=menuTopY - 10 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r10c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 10 * rowSpacing - spacing,
+        top=menuTopY - 10 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r11c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 11 * rowSpacing - spacing,
+        top=menuTopY - 11 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r11c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 11 * rowSpacing - spacing,
+        top=menuTopY - 11 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r12c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 12 * rowSpacing - spacing,
+        top=menuTopY - 12 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r12c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 12 * rowSpacing - spacing,
+        top=menuTopY - 12 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r13c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 13 * rowSpacing - spacing,
+        top=menuTopY - 13 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r13c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 13 * rowSpacing - spacing,
+        top=menuTopY - 13 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r14c0SettingsDeck,
         left=widgetBufferRight,
-        top=menuTopY - 14 * rowSpacing - spacing,
+        top=menuTopY - 14 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
         r14c1SettingsDeck,
         right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 14 * rowSpacing - spacing,
+        top=menuTopY - 14 * rowSpacing,
     )
     
     cycle_decks(0, 0)
@@ -1694,8 +1711,8 @@ def initialize_all_widgets(gui, windowHeight):
     leftToolBarTopBoard.add(r4c1GeometryActionDeck,left=85, bottom=115 - 3 * popUpWidgetHeightSpacing + 10)
     # R1 C1
     safe_board_add(settingsBoard, L_settingsTitle, center_x_percent=0.5, top=baseGridTop - widgetBufferVertical)
-    safe_board_add(settingsBoard, Black_Underline_Frame(), left=0, top=baseGridTop - widgetHeightSpacing)
-    safe_board_add(settingsBoard, R_printMode, center_x_percent=0.5, top=baseGridTop - widgetHeightSpacing - widgetBufferVertical)
+    safe_board_add(settingsBoard, Black_Underline_Frame(), left=0, top=565)
+    safe_board_add(settingsBoard, R_printMode, center_x_percent=0.5, top=565)
     safe_board_add(settingsBoard, Gray_Underline_Frame(), left=0, top=baseGridTop - 2 * widgetHeightSpacing - widgetBufferVertical)
     enable_5_axis_mode()  # Default mode provides starter 5-axis options
 
@@ -2556,7 +2573,7 @@ R_optionMode = Radio_Buttons(
     optionModeNames,
     optionModeImages,
     optionModeDefaultIndex,
-    None,
+    11,
     toggle_settings_layout,
     [],
 )

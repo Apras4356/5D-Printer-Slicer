@@ -66,6 +66,7 @@ Contains all the logic and processes required to run the interactive graphics wi
 
 # Global variable
 L_loadedIndices = []  # List of indices that have already been loaded
+screenshot_count = 0
 
 """ Camera Class """
 class Camera:  # Sets initial camera instance variables
@@ -1725,6 +1726,29 @@ def main():
 
     initialize_all_widgets(win.gui, win.windowHeight)  # Adds all default widgets to the screen
 
+    def take_screenshots(dt):
+        import widget_functions
+        
+        # Switch to Printer tab
+        widget_functions.R_optionMode.currentlyChecked = "Printer"
+        widget_functions.toggle_settings_layout(widget_functions.R_optionMode)
+        win.dispatch_events()
+        win.dispatch_event('on_draw')
+        win.flip()
+        pyglet.image.get_buffer_manager().get_color_buffer().save('C:\\Users\\taspg\\.gemini\\antigravity-ide\\brain\\c47b5741-b93a-4fbe-bcc9-00af48ed1c81\\scratch\\printer_tab.png')
+        
+        # Switch to 3 axis mode
+        widget_functions.R_viewMode.currentlyChecked = "3-Axis Mode"
+        widget_functions.toggle_printMode_layout(widget_functions.R_viewMode)
+        win.dispatch_events()
+        win.dispatch_event('on_draw')
+        win.flip()
+        pyglet.image.get_buffer_manager().get_color_buffer().save('C:\\Users\\taspg\\.gemini\\antigravity-ide\\brain\\c47b5741-b93a-4fbe-bcc9-00af48ed1c81\\scratch\\3axis_tab.png')
+        
+        import sys
+        sys.exit(0)
+        
+    pyglet.clock.schedule_once(take_screenshots, 1.0)
     pyglet.app.run()                                    # Run the pyglet main loop
 
 

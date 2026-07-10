@@ -24,6 +24,7 @@ import pyglet
 from pyglet import event
 from pyglet.window import key
 import glooey
+import os
 from glooey import drawing
 
 """
@@ -928,7 +929,7 @@ class Radio_Button(glooey.RadioButton):
 """ CHECKBOX CLASS """
 
 class Checkbox(glooey.Checkbox):
-    pyglet.resource.path = [".", "image_resources/Checkbox_Images"]
+    pyglet.resource.path = [os.path.dirname(__file__), os.path.join(os.path.dirname(__file__), "image_resources/Checkbox_Images")]
     pyglet.resource.reindex()
     custom_checked_base = pyglet.resource.image("checkedBase.png")
     custom_checked_over = pyglet.resource.image("checkedOver.png")
