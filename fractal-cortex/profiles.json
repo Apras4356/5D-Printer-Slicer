@@ -17,17 +17,17 @@
     "Bambu PLA Basic": {
         "type": "PLA",
         "diameter": 1.75,
-        "softeningTemp": 45,
-        "idleTemp": 0,
-        "minNozzleTemp": 190,
-        "maxNozzleTemp": 240,
+        "softeningTemp": 45.0,
+        "idleTemp": 0.0,
+        "minNozzleTemp": 190.0,
+        "maxNozzleTemp": 240.0,
         "enablePressureAdvance": false,
-        "chamberTemp": 0,
+        "chamberTemp": 0.0,
         "activateChamberTemp": false,
-        "nozzleFirstLayer": 220,
-        "nozzleOtherLayers": 220,
-        "bedFirstLayer": 65,
-        "bedOtherLayers": 65
+        "nozzleFirstLayer": 220.0,
+        "nozzleOtherLayers": 220.0,
+        "bedFirstLayer": 65.0,
+        "bedOtherLayers": 65.0
     },
     "Bambu PETG Basic": {
         "type": "PETG",

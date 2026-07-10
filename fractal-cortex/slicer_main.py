@@ -167,7 +167,7 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         self.multipleSelected = False
         self.updateTranslateText = False
         self.windowHeight = 720
-        self.windowWidth = 1200
+        self.windowWidth = 1280
 
         self.segments3D = []
 
@@ -340,15 +340,15 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         import widget_functions
         cylinderColor = (159.0 / 255.0, 226.0 / 255.0, 191.0 / 255.0, 0.8)                     # Translucent Jade
         if widget_functions.buildPlateShape == "circular":
-            self.draw_cylinder(radius=widget_functions.buildPlateX / 2.0, height=3, slices=50, stacks=1, color=cylinderColor)
+            self.draw_cylinder(radius=widget_functions.buildPlateX, height=3, slices=50, stacks=1, color=cylinderColor)
         else:
+            # We assume X and Y bounds are similar for simplicity, or we can use max
             self.draw_cuboid(width=widget_functions.buildPlateX, depth=widget_functions.buildPlateY, height=3, color=cylinderColor)
         
         # Dynamic bounds mapping to prevent user dragging out of bounds
         if widget_functions.buildPlateShape == "circular":
-            widget_functions.buildPlateBounds = [-widget_functions.buildPlateX/2.0, widget_functions.buildPlateX/2.0]
+            widget_functions.buildPlateBounds = [-widget_functions.buildPlateX, widget_functions.buildPlateX]
         else:
-            # We assume X and Y bounds are similar for simplicity, or we can use max
             max_bound = max(widget_functions.buildPlateX, widget_functions.buildPlateY) / 2.0
             widget_functions.buildPlateBounds = [-max_bound, max_bound]
 
@@ -1714,7 +1714,7 @@ class User_Interaction:
 
 # Main function
 def main():
-    win = Graphics_Window(width=1200, height=720, resizable=True, caption="3D STL Viewer")  # Instantiate the custom defined pyglet window class, Graphics_Window
+    win = Graphics_Window(width=1280, height=720, resizable=True, caption="3D STL Viewer")  # Instantiate the custom defined pyglet window class, Graphics_Window
 
     original_resize = win.on_resize
 
@@ -1726,29 +1726,6 @@ def main():
 
     initialize_all_widgets(win.gui, win.windowHeight)  # Adds all default widgets to the screen
 
-    def take_screenshots(dt):
-        import widget_functions
-        
-        # Switch to Printer tab
-        widget_functions.R_optionMode.currentlyChecked = "Printer"
-        widget_functions.toggle_settings_layout(widget_functions.R_optionMode)
-        win.dispatch_events()
-        win.dispatch_event('on_draw')
-        win.flip()
-        pyglet.image.get_buffer_manager().get_color_buffer().save('C:\\Users\\taspg\\.gemini\\antigravity-ide\\brain\\c47b5741-b93a-4fbe-bcc9-00af48ed1c81\\scratch\\printer_tab.png')
-        
-        # Switch to 3 axis mode
-        widget_functions.R_viewMode.currentlyChecked = "3-Axis Mode"
-        widget_functions.toggle_printMode_layout(widget_functions.R_viewMode)
-        win.dispatch_events()
-        win.dispatch_event('on_draw')
-        win.flip()
-        pyglet.image.get_buffer_manager().get_color_buffer().save('C:\\Users\\taspg\\.gemini\\antigravity-ide\\brain\\c47b5741-b93a-4fbe-bcc9-00af48ed1c81\\scratch\\3axis_tab.png')
-        
-        import sys
-        sys.exit(0)
-        
-    pyglet.clock.schedule_once(take_screenshots, 1.0)
     pyglet.app.run()                                    # Run the pyglet main loop
 
 

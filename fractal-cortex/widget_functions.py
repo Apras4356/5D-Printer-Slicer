@@ -522,9 +522,6 @@ def toggle_settings_layout(parentWidget):
     elif selectedMenu == "Adhesion":
         currentState = "adhesion"
 
-    elif selectedMenu == "Printer":
-        currentState = "printer"
-
     settingsState = currentState
     set_settings_deck_states(currentState)
 
@@ -580,12 +577,15 @@ def update_values():
         initialBedTemp = bedFirstLayer
 
         try:
-            buildPlateShape = r0c1SettingsDeck.get_widget("printer").currentChoice
-            buildPlateX = float(r1c1SettingsDeck.get_widget("printer").entryBoxEditableLabel.get_text())
-            buildPlateY = float(r2c1SettingsDeck.get_widget("printer").entryBoxEditableLabel.get_text())
-            buildPlateZ = float(r3c1SettingsDeck.get_widget("printer").entryBoxEditableLabel.get_text())
+            buildPlateShape = plateShapeDropdown.options[plateShapeDropdown.currentSelection]
+            buildPlateX = float(r2c1PlateEntry.entryBoxEditableLabel.get_text())
+            if buildPlateShape == "circular":
+                buildPlateY = buildPlateX
+            else:
+                buildPlateY = float(r3c1PlateEntry.entryBoxEditableLabel.get_text())
+            buildPlateZ = float(r4c1PlateEntry.entryBoxEditableLabel.get_text())
             save_printer_config()
-        except:
+        except Exception as e:
             pass
         
         # Auto-save changes to the profile
@@ -1700,6 +1700,18 @@ def initialize_all_widgets(gui, windowHeight):
     leftToolBarBoard.add(B_selectFile, left=0, top=baseGridTop)
     leftToolBarBoard.add(B_saveProject, left=60, top=baseGridTop)
     leftToolBarBoard.add(B_calibration, left=120, top=baseGridTop)
+    leftToolBarBoard.add(B_plateSettings, left=180, top=baseGridTop)
+    
+    leftToolBarBoard.add(plateSettingsBackgroundDeck, left=180, top=baseGridTop - 50)
+    leftToolBarTopBoard.add(r1c0PlateSettingsDeck, left=190, top=baseGridTop - 60)
+    leftToolBarTopBoard.add(r1c1PlateSettingsDeck, left=250, top=baseGridTop - 60)
+    leftToolBarTopBoard.add(r2c0PlateSettingsDeck, left=190, top=baseGridTop - 60 - popUpWidgetHeightSpacing)
+    leftToolBarTopBoard.add(r2c1PlateSettingsDeck, left=265, top=baseGridTop - 60 - popUpWidgetHeightSpacing)
+    leftToolBarTopBoard.add(r3c0PlateSettingsDeck, left=190, top=baseGridTop - 60 - 2*popUpWidgetHeightSpacing)
+    leftToolBarTopBoard.add(r3c1PlateSettingsDeck, left=265, top=baseGridTop - 60 - 2*popUpWidgetHeightSpacing)
+    leftToolBarTopBoard.add(r4c0PlateSettingsDeck, left=190, top=baseGridTop - 60 - 3*popUpWidgetHeightSpacing)
+    leftToolBarTopBoard.add(r4c1PlateSettingsDeck, left=265, top=baseGridTop - 60 - 3*popUpWidgetHeightSpacing)
+    
     leftToolBarBoard.add(R_geometryAction, left=0, bottom=5)
     leftToolBarBoard.add(geometryActionBackgroundDeck, left=60, bottom=5)
     leftToolBarTopBoard.add(r0GeometryActionDeck,center_x=130, bottom=120)
@@ -1898,7 +1910,6 @@ optionModeNames = [
     "Movement",
     "Supports",
     "Adhesion",
-    "Printer",
 ]
 optionModeImages = [
     [
@@ -1936,12 +1947,6 @@ optionModeImages = [
         "image_resources/optionMode_Radio_Button_Images/adhesion/R_uncheckedOver.png",
         "image_resources/optionMode_Radio_Button_Images/adhesion/R_uncheckedDown.png",
         "image_resources/optionMode_Radio_Button_Images/adhesion/R_checked.png",
-    ],
-    [
-        "image_resources/optionMode_Radio_Button_Images/printer/R_uncheckedBase.png",
-        "image_resources/optionMode_Radio_Button_Images/printer/R_uncheckedOver.png",
-        "image_resources/optionMode_Radio_Button_Images/printer/R_uncheckedDown.png",
-        "image_resources/optionMode_Radio_Button_Images/printer/R_checked.png",
     ],
 ]
 
@@ -2425,6 +2430,83 @@ B_calibration = Unlabeled_Image_Button(
     "image_resources/File_Button_Images/calibration/over.png",
     "image_resources/File_Button_Images/calibration/down.png",
     run_calibration,
+    [],
+)
+
+plateShapeDropdown = Drop_Down_Menu(['rectangular', 'circular'], leftToolBarStack, 'Lower')
+plateShapeDropdown.currentSelection = plateShapeDropdown.options.index(buildPlateShape) if buildPlateShape in plateShapeDropdown.options else 0
+
+r2c1PlateEntry = Entry_Box(str(buildPlateX), 10.0, 1000.0, 'mm')
+r3c1PlateEntry = Entry_Box(str(buildPlateY), 10.0, 1000.0, 'mm')
+r4c1PlateEntry = Entry_Box(str(buildPlateZ), 10.0, 1000.0, 'mm')
+
+r1c0PlateLabel = Widget_Label("Shape")
+r2c0PlateLabel = Widget_Label("X (Width)")
+r3c0PlateLabel = Widget_Label("Y (Depth)")
+r4c0PlateLabel = Widget_Label("Z (Height)")
+
+plateSettingsBackgroundDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=Custom_Image("image_resources/geometryActionPopUpBox_Images/background.png"))
+
+r1c0PlateSettingsDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=r1c0PlateLabel)
+r1c1PlateSettingsDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=plateShapeDropdown)
+
+r2c0PlateSettingsDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=r2c0PlateLabel)
+r2c1PlateSettingsDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=r2c1PlateEntry)
+
+r3c0PlateSettingsDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=r3c0PlateLabel)
+r3c1PlateSettingsDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=r3c1PlateEntry)
+
+r4c0PlateSettingsDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=r4c0PlateLabel)
+r4c1PlateSettingsDeck = glooey.Deck("hidden", hidden=Widget_Label(""), active=r4c1PlateEntry)
+
+def update_plate_settings_ui(selected_shape=None):
+    if selected_shape is None:
+        shape = plateShapeDropdown.options[plateShapeDropdown.currentSelection]
+    else:
+        shape = selected_shape
+    if shape == "circular":
+        r2c0PlateLabel.set_text("Radius")
+        r3c0PlateSettingsDeck.set_state("hidden")
+        r3c1PlateSettingsDeck.set_state("hidden")
+    else:
+        r2c0PlateLabel.set_text("X (Width)")
+        r3c0PlateLabel.set_text("Y (Depth)")
+        if plateSettingsBackgroundDeck.state == "active":
+            r3c0PlateSettingsDeck.set_state("active")
+            r3c1PlateSettingsDeck.set_state("active")
+    update_values()
+
+plateShapeDropdown.on_selection_changed = update_plate_settings_ui
+
+def toggle_plate_settings_layout(*args):
+    if plateSettingsBackgroundDeck.state == "hidden":
+        plateSettingsBackgroundDeck.set_state("active")
+        r1c0PlateSettingsDeck.set_state("active")
+        r1c1PlateSettingsDeck.set_state("active")
+        r2c0PlateSettingsDeck.set_state("active")
+        r2c1PlateSettingsDeck.set_state("active")
+        r3c0PlateSettingsDeck.set_state("active")
+        r3c1PlateSettingsDeck.set_state("active")
+        r4c0PlateSettingsDeck.set_state("active")
+        r4c1PlateSettingsDeck.set_state("active")
+        update_plate_settings_ui()
+    else:
+        plateSettingsBackgroundDeck.set_state("hidden")
+        r1c0PlateSettingsDeck.set_state("hidden")
+        r1c1PlateSettingsDeck.set_state("hidden")
+        r2c0PlateSettingsDeck.set_state("hidden")
+        r2c1PlateSettingsDeck.set_state("hidden")
+        r3c0PlateSettingsDeck.set_state("hidden")
+        r3c1PlateSettingsDeck.set_state("hidden")
+        r4c0PlateSettingsDeck.set_state("hidden")
+        r4c1PlateSettingsDeck.set_state("hidden")
+        update_values()
+
+B_plateSettings = Unlabeled_Image_Button(
+    "image_resources/File_Button_Images/plateSettings/base.png",
+    "image_resources/File_Button_Images/plateSettings/over.png",
+    "image_resources/File_Button_Images/plateSettings/down.png",
+    toggle_plate_settings_layout,
     [],
 )
 
