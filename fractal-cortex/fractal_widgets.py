@@ -324,6 +324,13 @@ class Spin_Box_EditableLabel(glooey.EditableLabel):
         except:
             pass
 
+    def do_undraw(self):
+        try:
+            self.unfocus()
+        except:
+            pass
+        super().do_undraw()
+
     def on_window_mouse_press(self, x, y, button, modifiers):
         # Check if mouse is outside of the label when clicked. If so, call the on_mouse_leave function
         # If I need to troubleshoot this in the future, I can try testing x and y against self.rect
@@ -1313,6 +1320,13 @@ class Entry_Box_EditableLabel(glooey.EditableLabel):
             self.unfocus()  # This makes it so that if the caret is in an entry box and the window is resized, it won't restrict the user from selecting another widget
         except:
             pass
+
+    def do_undraw(self):
+        try:
+            self.unfocus()
+        except:
+            pass
+        super().do_undraw()
 
     def on_window_mouse_press(self, x, y, button, modifiers):
         # Check if mouse is outside of the label when clicked. If so, call the on_mouse_leave function
