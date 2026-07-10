@@ -1275,11 +1275,6 @@ def enable_3_axis_mode():
         top=menuTopY - 0 * rowSpacing,
     )
     safe_board_add(settingsBoard, 
-        r0c1SettingsDeck,
-        right=baseGridRight - widgetBufferRight,
-        top=menuTopY - 0 * rowSpacing,
-    )
-    safe_board_add(settingsBoard, 
         r1c0SettingsDeck,
         left=widgetBufferRight,
         top=menuTopY - 1 * rowSpacing,
@@ -1420,6 +1415,11 @@ def enable_3_axis_mode():
         top=menuTopY - 14 * rowSpacing,
     )
 
+    safe_board_add(settingsBoard, 
+        r0c1SettingsDeck,
+        right=baseGridRight - widgetBufferRight,
+        top=menuTopY - 0 * rowSpacing,
+    )
     cycle_decks(0, 0)
 
 def display_starting_box():
@@ -1703,8 +1703,8 @@ def initialize_all_widgets(gui, windowHeight):
     leftToolBarBoard.add(B_plateSettings, left=180, top=baseGridTop)
     
     leftToolBarBoard.add(plateSettingsBackgroundDeck, left=180, top=baseGridTop - 50)
-    leftToolBarTopBoard.add(r1c0PlateSettingsDeck, left=190, top=baseGridTop - 60)
     leftToolBarTopBoard.add(r1c1PlateSettingsDeck, left=250, top=baseGridTop - 60)
+    leftToolBarTopBoard.add(r1c0PlateSettingsDeck, left=190, top=baseGridTop - 60)
     leftToolBarTopBoard.add(r2c0PlateSettingsDeck, left=190, top=baseGridTop - 60 - popUpWidgetHeightSpacing)
     leftToolBarTopBoard.add(r2c1PlateSettingsDeck, left=265, top=baseGridTop - 60 - popUpWidgetHeightSpacing)
     leftToolBarTopBoard.add(r3c0PlateSettingsDeck, left=190, top=baseGridTop - 60 - 2*popUpWidgetHeightSpacing)
@@ -2485,10 +2485,16 @@ def toggle_plate_settings_layout(*args):
         r1c1PlateSettingsDeck.set_state("active")
         r2c0PlateSettingsDeck.set_state("active")
         r2c1PlateSettingsDeck.set_state("active")
-        r3c0PlateSettingsDeck.set_state("active")
-        r3c1PlateSettingsDeck.set_state("active")
         r4c0PlateSettingsDeck.set_state("active")
         r4c1PlateSettingsDeck.set_state("active")
+        
+        shape = plateShapeDropdown.options[plateShapeDropdown.currentSelection]
+        if shape == "circular":
+            r3c0PlateSettingsDeck.set_state("hidden")
+            r3c1PlateSettingsDeck.set_state("hidden")
+        else:
+            r3c0PlateSettingsDeck.set_state("active")
+            r3c1PlateSettingsDeck.set_state("active")
         update_plate_settings_ui()
     else:
         plateSettingsBackgroundDeck.set_state("hidden")

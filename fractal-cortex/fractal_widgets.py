@@ -557,16 +557,16 @@ class Drop_Down_Menu(glooey.Widget):
             custom_height_hint = 20
 
         class Decoration(glooey.Background):
-            custom_color = "66ffff"
+            custom_color = "#66ffff"
             custom_outline = "gray"
 
             def on_mouse_enter(self, x, y):
-                self.set_color("ccfeea")
+                self.set_color("#ccfeea")
                 self.set_outline("white")
                 super().on_mouse_enter(x, y)
 
             def on_mouse_leave(self, x, y):
-                self.set_color("66ffff")
+                self.set_color("#66ffff")
                 self.set_outline("gray")
                 super().on_mouse_leave(x, y)
 
@@ -579,16 +579,16 @@ class Drop_Down_Menu(glooey.Widget):
             custom_height_hint = 20
 
         class Decoration(glooey.Background):
-            custom_color = "F0FFFF"
+            custom_color = "#F0FFFF"
             custom_outline = "gray"
 
             def on_mouse_enter(self, x, y):
-                self.set_color("ccfeea")
+                self.set_color("#ccfeea")
                 self.set_outline("white")
                 super().on_mouse_enter(x, y)
 
             def on_mouse_leave(self, x, y):
-                self.set_color("F0FFFF")
+                self.set_color("#F0FFFF")
                 self.set_outline("gray")
                 super().on_mouse_leave(x, y)
 
@@ -622,7 +622,7 @@ class Drop_Down_Menu(glooey.Widget):
         self.vbox.add(
             self.selectedOption
         )  # Add selected option to the first element in the vbox
-        self._attach_child(self.vbox)  # Attach the vbox to this widget
+        self._attach_child(self.vbox)  # Insert the vbox at a high layer so it renders above other widgets
         self.counter = 0
         self.additionalOptionFrames = []
 

@@ -1731,3 +1731,63 @@ def main():
 
 if __name__ == "__main__":
     main()  # Call the main function
+
+import pyglet
+frame_count = 0
+
+@window.event
+def on_draw():
+    global frame_count
+    frame_count += 1
+    
+    if frame_count == 2:
+        print("Dispatching click...")
+        # filamentProfileMenu is at top=130, left=190
+        # In baseGrid column 0, X is 190.
+        # Y is windowHeight(720) - bannerHeight(90) - 130 = 500
+        window.dispatch_event('on_mouse_press', 200, 500, 1, 0)
+    
+    if frame_count == 4:
+        print("Taking screenshot...")
+        pyglet.image.get_buffer_manager().get_color_buffer().save('dropdown_test.png')
+        pyglet.app.exit()
+
+
+import pyglet
+frame_count = 0
+
+@window.event
+def on_draw():
+    global frame_count
+    frame_count += 1
+    
+    if frame_count == 2:
+        print("Dispatching click...")
+        window.dispatch_event('on_mouse_press', 200, 500, 1, 0)
+    
+    if frame_count == 4:
+        print("Taking screenshot...")
+        pyglet.image.get_buffer_manager().get_color_buffer().save('dropdown_test_fixed.png')
+        pyglet.app.exit()
+
+
+import pyglet
+frame_count = 0
+
+@window.event
+def on_draw():
+    global frame_count
+    frame_count += 1
+    
+    if frame_count == 2:
+        print("Dispatching click...")
+        # filamentProfileMenu is at right=baseGridRight - widgetBufferRight, top=menuTopY
+        # In baseGrid column 1, X is roughly 500-600.
+        # Y is windowHeight(720) - bannerHeight(90) - menuTopY
+        window.dispatch_event('on_mouse_press', 650, 480, 1, 0)
+    
+    if frame_count == 4:
+        print("Taking screenshot...")
+        pyglet.image.get_buffer_manager().get_color_buffer().save('dropdown_test_fixed.png')
+        pyglet.app.exit()
+
