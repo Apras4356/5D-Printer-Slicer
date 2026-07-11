@@ -1662,41 +1662,53 @@ def initialize_all_widgets(gui, windowHeight):
     gui.add(baseGrid)
     baseGrid.clear()
     # R0 C0
-    baseGrid.add(0, 0, topLeftGrid)
-    topLeftGrid.add(0, 1, topLeftStack1)
-    topLeftStack1.insert(Dark_Gray_Background(), 0)
+    leftBannerStack = glooey.Stack()
+    leftBannerStack.insert(Dark_Gray_Background(), 0)
+    leftBannerBoard = glooey.Board()
+    leftBannerStack.insert(leftBannerBoard, 1)
+    baseGrid.add(0, 0, leftBannerStack)
+
     # R0 C1
+    topLeftStack1.insert(Dark_Gray_Background(), 0)
+    baseGrid.add(0, 1, topLeftStack1)
+    
     # R1 C0
+    baseGrid.add(1, 0, settingsStack)
+    settingsStack.insert(Light_Gray_Background(), 0)
+    settingsStack.insert(settingsBoard, 1)
+    settingsStack.insert(slicingDirectionBoard, 2)
+    
+    # R1 C1
     leftToolBarStack.insert(leftToolBarBoard, 0)
     leftToolBarStack.insert(leftToolBarTopBoard, 1)
     rightToolBarStack.insert(rightToolBarBoard, 0)
     rightToolBarStack.insert(rightToolBarTopBoard, 1)
     
-    # R1 C1
-    baseGrid.add(1, 1, settingsStack)
-    settingsStack.insert(Light_Gray_Background(), 0)
-    settingsStack.insert(settingsBoard, 1)
-    settingsStack.insert(slicingDirectionBoard, 2)
-    
     # R2 C0
+    baseGrid.add(2, 0, Light_Gray_Background())
 
     # R2 C1
-    baseGrid.add(2, 1, Light_Gray_Background())
 
     """ Adjust container parameters """
     baseGrid.set_row_height(0, bannerHeight)
-    baseGrid.set_col_width(1, baseGridRight)
+    baseGrid.set_col_width(0, baseGridRight)
     baseGrid.set_row_height(1, baseGridTop)
     lowerLeftTop = windowHeight - (bannerHeight + baseGridTop)
-    topLeftGrid.set_col_width(0, 315)
+    # topLeftGrid.set_col_width(0, 315) # No longer needed
 
     """ Add widgets to containers """
     # R0 C0
-    topLeftStack1.add(R_viewMode)
-    topLeftGrid.add(0, 0, I_logo)
+    leftBannerBoard.add(I_logo, left=15, center_y_percent=0.5)
+    
     # R0 C1
-    baseGrid.add(0, 1, Dark_Gray_Background())
+    topLeftStack1.add(R_viewMode)
+    
     # R1 C0
+    safe_board_add(settingsBoard, L_settingsTitle, center_x_percent=0.5, top=baseGridTop - widgetBufferVertical)
+    safe_board_add(settingsBoard, R_printMode, center_x_percent=0.5, top=565)
+    enable_5_axis_mode()  # Default mode provides starter 5-axis options
+    
+    # R1 C1
     leftToolBarBoard.add(B_selectFile, left=0, top=baseGridTop)
     leftToolBarBoard.add(B_saveProject, left=60, top=baseGridTop)
     leftToolBarBoard.add(B_calibration, left=120, top=baseGridTop)
@@ -1721,23 +1733,22 @@ def initialize_all_widgets(gui, windowHeight):
     leftToolBarTopBoard.add(r3c1GeometryActionDeck,left=85, bottom=115 - 2 * popUpWidgetHeightSpacing + 10)
     leftToolBarTopBoard.add(r4c0GeometryActionDeck,left=70, bottom=115 - 3 * popUpWidgetHeightSpacing + 15)
     leftToolBarTopBoard.add(r4c1GeometryActionDeck,left=85, bottom=115 - 3 * popUpWidgetHeightSpacing + 10)
-    # R1 C1
-    safe_board_add(settingsBoard, L_settingsTitle, center_x_percent=0.5, top=baseGridTop - widgetBufferVertical)
-    safe_board_add(settingsBoard, Black_Underline_Frame(), left=0, top=565)
-    safe_board_add(settingsBoard, R_printMode, center_x_percent=0.5, top=565)
-    safe_board_add(settingsBoard, Gray_Underline_Frame(), left=0, top=baseGridTop - 2 * widgetHeightSpacing - widgetBufferVertical)
-    enable_5_axis_mode()  # Default mode provides starter 5-axis options
 
     viewportGrid.set_col_width(1, 420)
+    
     rightToolBarHBox.add(rightToolBarStack)
+    
+    rightViewportStack = glooey.Stack()
+    rightViewportStack.add(rightToolBarHBox)
+    
     viewportGrid.add(0, 0, leftToolBarStack)
-    viewportGrid.add(0, 1, rightToolBarHBox)
-    baseGrid.add(1, 0, viewportGrid) # This needs to be added after everything has been added to the settingsBoard or else the radio button order will get messed up again
+    viewportGrid.add(0, 1, rightViewportStack)
+    baseGrid.add(1, 1, viewportGrid) # This needs to be added after everything has been added to the settingsBoard or else the radio button order will get messed up again
     
     # R2 C0
+    safe_board_add(settingsBoard, sliceButtonDeck, center_x_percent=0.5, bottom=2 * widgetBufferVertical)
 
     # R2 C1
-    safe_board_add(settingsBoard, sliceButtonDeck, center_x_percent=0.5, bottom=2 * widgetBufferVertical)
 
 """ WIDGET DEFINITIONS """
 # CONTAINER WIDGETS:

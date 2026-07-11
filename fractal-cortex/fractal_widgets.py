@@ -1115,6 +1115,33 @@ class Unlabeled_Image_Button(glooey.Button):
     class Down(glooey.Background):
         custom_image = None
 
+class View_Orientation_Button(glooey.Button):
+    custom_alignment = "center"
+    class Label(glooey.Label):
+        custom_font_size = 11
+        custom_color = "black"
+        custom_font_name = "Roboto"
+        custom_bold = True
+        custom_alignment = "center"
+        custom_padding = 6
+
+    class Base(glooey.Background):
+        custom_color = "#E0E0E0"
+
+    class Over(glooey.Background):
+        custom_color = "#C0C0C0"
+
+    class Down(glooey.Background):
+        custom_color = "#A0A0A0"
+
+    def __init__(self, text, function, argsList):
+        self.function = function
+        self.argsList = argsList
+        super().__init__(text)
+
+    def on_click(self, widget):
+        self.function(*self.argsList)
+
 class Disableable_Unlabeled_Image_Button(glooey.Button):
     def __init__(self, baseImage, overImage, downImage, function, argsList, disabledImage=None):
         self.baseImage = baseImage

@@ -310,11 +310,13 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
     def reenable_lighting():
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
+        glEnable(GL_DEPTH_TEST)
 
     @staticmethod
     def disable_lighting():
         glDisable(GL_LIGHTING)
         glDisable(GL_LIGHT0)
+        glDisable(GL_DEPTH_TEST)
 
     def on_draw(self):
         self.reenable_lighting()        # This in conjunction with disabling lighting at the end of this function solves the problem with incorrectly shading the widgets
@@ -330,10 +332,18 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         glEnable(GL_BLEND)                                                      # Enable the ability to blend colors of different models together if transparent
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)                       # Defines which equations are used to blend pixel colors
 
-        glViewport(0, 0, self.width, self.height)                               # Sets the bounds of where the viewport will be rendered
+        import widget_functions
+        viewX = widget_functions.baseGridRight
+        viewY = 0
+        viewW = max(1, self.width - widget_functions.baseGridRight)
+        viewH = max(1, self.height - widget_functions.bannerHeight)
+
+        glViewport(viewX, viewY, viewW, viewH)                                  # Sets the bounds of where the viewport will be rendered
         glMatrixMode(GL_PROJECTION)                                             # Specifies matrix stack that will be used for subsequent matrix operations. GL_PROJECTION contains information about the viewing volume
         glLoadIdentity()                                                        # Replaces matrix on the top of the stack with the identity matrix
-        gluPerspective(45.0, (self.width) / float(self.height), 0.1, 1000.0)    # Defines the parameters of the viewing volume
+        aspect = viewW / float(viewH) if viewH > 0 else 1.0
+        scale = self.Camera.cameraDistance * 0.41421356  # tan(45/2) to match previous perspective scale
+        glOrtho(-scale * aspect, scale * aspect, -scale, scale, -2000.0, 2000.0) # Defines orthogonal parameters
         glMatrixMode(GL_MODELVIEW)                                              # Specifies matrix stack that will be used for subsequent matrix operations. GL_MODELVIEW is responsible for transforming the camera and models relative to each other
 
         # Draw the custom build plate
@@ -505,14 +515,16 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
             self.Render_SlicePlanes.cleanup_current_vbo()
 
         self.reset_widget_color()
-
         glGetDoublev(GL_PROJECTION_MATRIX, self.projectionMatrix)
-        super().on_resize(self.width, self.height)
         glGetDoublev(GL_MODELVIEW_MATRIX, self.modelViewMatrix)
         glGetIntegerv(GL_VIEWPORT, self.viewportMatrix)         # Viewport is a list of pixel coordinates in the form: (0, 0, windowWidth, windowHeight)
+        
+        self.draw_view_cube(viewX, viewY, viewW, viewH)
+        super().on_resize(self.width, self.height)
         glLoadIdentity()
 
         self.disable_lighting()                                 # This in conjunction with reenabling lighting at the top of this function solves the problem with incorrectly shading the widgets
+        glClear(GL_DEPTH_BUFFER_BIT)                            # Clear depth buffer so 2D GUI elements draw on top of 3D objects
 
     def update_geometry_action_variables(self, fileKey):
         popUpBoxState = r0GeometryActionDeck.get_state()
@@ -735,6 +747,117 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         glVertex3f(hx, hy, 0)
         glVertex3f(hx, -hy, 0)
         glEnd()
+
+    def draw_view_cube(self, viewX, viewY, viewW, viewH, is_picking=False):
+        cube_size = 100
+        padding = 20
+        glViewport(int(viewX + viewW - cube_size - padding), int(viewY + viewH - cube_size - padding), cube_size, cube_size)
+        
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        glOrtho(-1.5, 1.5, -1.5, 1.5, -10.0, 10.0)
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        
+        glRotatef(self.Camera.cameraAngleY, 1, 0, 0)
+        glRotatef(self.Camera.cameraAngleX, 0, 0, 1)
+        
+        glDisable(GL_LIGHTING)
+        glEnable(GL_DEPTH_TEST)
+        glDepthFunc(GL_LEQUAL)
+        
+        faces = [
+            ([(-1,-1, 1), ( 1,-1, 1), ( 1, 1, 1), (-1, 1, 1)], (0.3, 0.3, 0.8), 1),
+            ([(-1,-1,-1), (-1, 1,-1), ( 1, 1,-1), ( 1,-1,-1)], (0.1, 0.1, 0.4), 2),
+            ([( 1,-1,-1), ( 1, 1,-1), ( 1, 1, 1), ( 1,-1, 1)], (0.8, 0.3, 0.3), 3),
+            ([(-1,-1,-1), (-1,-1, 1), (-1, 1, 1), (-1, 1,-1)], (0.4, 0.1, 0.1), 4),
+            ([(-1,-1,-1), ( 1,-1,-1), ( 1,-1, 1), (-1,-1, 1)], (0.3, 0.8, 0.3), 5),
+            ([(-1, 1,-1), (-1, 1, 1), ( 1, 1, 1), ( 1, 1,-1)], (0.1, 0.4, 0.1), 6),
+        ]
+        
+        glBegin(GL_QUADS)
+        for vertices, color, face_id in faces:
+            if is_picking:
+                glColor3ub(face_id, 0, 0)
+            else:
+                glColor3f(*color)
+            for v in vertices:
+                glVertex3f(*v)
+        glEnd()
+        
+        if not is_picking:
+            glColor3f(0, 0, 0)
+            glLineWidth(2.0)
+            for vertices, _, _ in faces:
+                glBegin(GL_LINE_LOOP)
+                for v in vertices:
+                    glVertex3f(*v)
+                glEnd()
+            glLineWidth(1.0)
+            
+        # Reset color to white so Pyglet GUI textures aren't tinted black!
+        glColor4f(1.0, 1.0, 1.0, 1.0)
+        
+        # Draw text labels
+        if not is_picking:
+            # We must draw the labels in 2D mode, so we quickly restore matrices
+            glMatrixMode(GL_PROJECTION)
+            glLoadIdentity()
+            glOrtho(0, self.width, 0, self.height, -1, 1)
+            glMatrixMode(GL_MODELVIEW)
+            glLoadIdentity()
+            glViewport(0, 0, self.width, self.height)
+            
+            import math
+            import pyglet
+            
+            if not hasattr(self, 'view_cube_labels'):
+                self.view_cube_labels = {
+                    name: pyglet.text.Label(name.capitalize(), font_name='Roboto', font_size=10, bold=True, color=(255,255,255,255), anchor_x='center', anchor_y='center')
+                    for name in ['top', 'bottom', 'right', 'left', 'front', 'back']
+                }
+            
+            ax = math.radians(self.Camera.cameraAngleX)
+            ay = math.radians(self.Camera.cameraAngleY)
+            
+            face_centers = {
+                'top': (0, 0, 1),
+                'bottom': (0, 0, -1),
+                'right': (1, 0, 0),
+                'left': (-1, 0, 0),
+                'front': (0, -1, 0),
+                'back': (0, 1, 0)
+            }
+            
+            vp_x = viewX + viewW - cube_size - padding
+            vp_y = viewY + viewH - cube_size - padding
+            center_screen_x = vp_x + cube_size / 2.0
+            center_screen_y = vp_y + cube_size / 2.0
+            
+            glDisable(GL_DEPTH_TEST)
+            
+            for name, (vx, vy, vz) in face_centers.items():
+                # Rotate around Z by ax
+                x1 = math.cos(ax) * vx - math.sin(ax) * vy
+                y1 = math.sin(ax) * vx + math.cos(ax) * vy
+                z1 = vz
+                
+                # Rotate around X by ay
+                x2 = x1
+                y2 = math.cos(ay) * y1 - math.sin(ay) * z1
+                z2 = math.sin(ay) * y1 + math.cos(ay) * z1
+                
+                # Only draw if facing the camera (z2 > 0)
+                if z2 > 0.1:
+                    screen_x = center_screen_x + (x2 / 1.5) * (cube_size / 2.0)
+                    screen_y = center_screen_y + (y2 / 1.5) * (cube_size / 2.0)
+                    
+                    label = self.view_cube_labels[name]
+                    label.x = screen_x
+                    label.y = screen_y
+                    label.draw()
+            
+            # The calling function (on_draw) will set up the GUI 2D matrices properly, so we don't need to restore them here.
 
     @staticmethod
     def draw_cylinder(radius, height, slices, stacks, color):
@@ -1064,6 +1187,51 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                     self.scale_single_STL()
 
     def on_mouse_press(self, x, y, button, modifiers):
+        if button == mouse.LEFT:
+            import widget_functions
+            viewX = widget_functions.baseGridRight
+            viewY = 0
+            viewW = max(1, self.width - widget_functions.baseGridRight)
+            viewH = max(1, self.height - widget_functions.bannerHeight)
+            
+            cube_size = 100
+            padding = 20
+            vp_x = int(viewX + viewW - cube_size - padding)
+            vp_y = int(viewY + viewH - cube_size - padding)
+            
+            if vp_x <= x <= vp_x + cube_size and vp_y <= y <= vp_y + cube_size:
+                glReadBuffer(GL_FRONT)
+                data = (pyglet.gl.GLubyte * 3)()
+                glReadPixels(x, y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, data)
+                glReadBuffer(GL_BACK)
+                
+                r, g, b = data[0], data[1], data[2]
+                
+                colors = {
+                    "top": (76, 76, 204),
+                    "bottom": (25, 25, 102),
+                    "right": (204, 76, 76),
+                    "left": (102, 25, 25),
+                    "front": (76, 204, 76),
+                    "back": (25, 102, 25)
+                }
+                
+                closest_face = None
+                min_dist = float("inf")
+                for name, (cr, cg, cb) in colors.items():
+                    dist = abs(r - cr) + abs(g - cg) + abs(b - cb)
+                    if dist < min_dist:
+                        min_dist = dist
+                        closest_face = name
+                
+                if min_dist < 50: # Threshold so clicking background doesn't trigger
+                    self.view_cube_face_clicked = closest_face
+                    self.view_cube_click_x = x
+                    self.view_cube_click_y = y
+                    self.view_cube_drag_dist = 0
+                    self.dragging_view_cube = False
+                    return pyglet.event.EVENT_HANDLED
+
         currentViewMode = R_viewMode.currentlyChecked
         if currentViewMode == "Preview":            # Don't allow user to interact with STL's in Preview mode
             return
@@ -1132,6 +1300,17 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         global cameraAngleX, cameraAngleY, lookPositionX, lookPositionY
+        
+        if getattr(self, 'view_cube_face_clicked', None) and buttons & mouse.LEFT:
+            self.view_cube_drag_dist += dx**2 + dy**2
+            if self.view_cube_drag_dist > 25:
+                self.dragging_view_cube = True
+            
+            if self.dragging_view_cube:
+                self.Camera.cameraAngleX += dx * self.Camera.rotateSensitivity
+                self.Camera.cameraAngleY -= dy * self.Camera.rotateSensitivity
+                return pyglet.event.EVENT_HANDLED
+                
         if buttons & mouse.RIGHT:                   # Camera rotation
             self.Camera.cameraAngleX += dx * self.Camera.rotateSensitivity
             self.Camera.cameraAngleY -= dy * self.Camera.rotateSensitivity
@@ -1171,6 +1350,73 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                             )                       # Accumulate the translations to get the final positions
 
     def on_mouse_release(self, x, y, button, modifiers):
+        if getattr(self, 'view_cube_face_clicked', None) and button == mouse.LEFT:
+            if not getattr(self, 'dragging_view_cube', False):
+                import math
+                click_x = self.view_cube_click_x
+                click_y = self.view_cube_click_y
+                face = self.view_cube_face_clicked
+                
+                import widget_functions
+                viewX = widget_functions.baseGridRight
+                viewY = 0
+                viewW = max(1, self.width - widget_functions.baseGridRight)
+                viewH = max(1, self.height - widget_functions.bannerHeight)
+                cube_size = 100
+                padding = 20
+                vp_x = int(viewX + viewW - cube_size - padding)
+                vp_y = int(viewY + viewH - cube_size - padding)
+                
+                xs = (click_x - (vp_x + cube_size/2.0)) / (cube_size/2.0) * 1.5
+                ys = (click_y - (vp_y + cube_size/2.0)) / (cube_size/2.0) * 1.5
+                
+                ax = math.radians(self.Camera.cameraAngleX)
+                ay = math.radians(self.Camera.cameraAngleY)
+                
+                Ow_x = math.cos(-ax)*xs - math.sin(-ax)*(math.cos(-ay)*ys - math.sin(-ay)*10)
+                Ow_y = math.sin(-ax)*xs + math.cos(-ax)*(math.cos(-ay)*ys - math.sin(-ay)*10)
+                Ow_z = math.sin(-ay)*ys + math.cos(-ay)*10
+                
+                Dw_x = math.cos(-ax)*0 - math.sin(-ax)*(math.cos(-ay)*0 - math.sin(-ay)*-1)
+                Dw_y = math.sin(-ax)*0 + math.cos(-ax)*(math.cos(-ay)*0 - math.sin(-ay)*-1)
+                Dw_z = math.sin(-ay)*0 + math.cos(-ay)*-1
+                
+                t = 0
+                if face == "top" and Dw_z != 0: t = (1 - Ow_z) / Dw_z
+                elif face == "bottom" and Dw_z != 0: t = (-1 - Ow_z) / Dw_z
+                elif face == "right" and Dw_x != 0: t = (1 - Ow_x) / Dw_x
+                elif face == "left" and Dw_x != 0: t = (-1 - Ow_x) / Dw_x
+                elif face == "front" and Dw_y != 0: t = (-1 - Ow_y) / Dw_y
+                elif face == "back" and Dw_y != 0: t = (1 - Ow_y) / Dw_y
+                
+                Pw_x = Ow_x + t*Dw_x
+                Pw_y = Ow_y + t*Dw_y
+                Pw_z = Ow_z + t*Dw_z
+                
+                def snap(val):
+                    if val > 0.4: return 1.0
+                    if val < -0.4: return -1.0
+                    return 0.0
+                    
+                X = snap(Pw_x)
+                Y = snap(Pw_y)
+                Z = snap(Pw_z)
+                
+                if X == 0 and Y == 0:
+                    new_ax = self.Camera.cameraAngleX
+                else:
+                    new_ax = math.degrees(math.atan2(-X, -Y))
+                    
+                V_y = X * math.sin(math.radians(new_ax)) + Y * math.cos(math.radians(new_ax))
+                new_ay = math.degrees(math.atan2(V_y, Z))
+                
+                self.Camera.cameraAngleX = new_ax
+                self.Camera.cameraAngleY = new_ay
+                
+            self.view_cube_face_clicked = None
+            self.dragging_view_cube = False
+            return pyglet.event.EVENT_HANDLED
+
         def updateSettings():
             if r5c1SettingsDeck.get_widget("movement").is_checked: # If retraction is enabled, make retraction options visible
                 r6c0MovementDeck.set_state("enabled")
@@ -1728,66 +1974,5 @@ def main():
 
     pyglet.app.run()                                    # Run the pyglet main loop
 
-
 if __name__ == "__main__":
-    main()  # Call the main function
-
-import pyglet
-frame_count = 0
-
-@window.event
-def on_draw():
-    global frame_count
-    frame_count += 1
-    
-    if frame_count == 2:
-        print("Dispatching click...")
-        # filamentProfileMenu is at top=130, left=190
-        # In baseGrid column 0, X is 190.
-        # Y is windowHeight(720) - bannerHeight(90) - 130 = 500
-        window.dispatch_event('on_mouse_press', 200, 500, 1, 0)
-    
-    if frame_count == 4:
-        print("Taking screenshot...")
-        pyglet.image.get_buffer_manager().get_color_buffer().save('dropdown_test.png')
-        pyglet.app.exit()
-
-
-import pyglet
-frame_count = 0
-
-@window.event
-def on_draw():
-    global frame_count
-    frame_count += 1
-    
-    if frame_count == 2:
-        print("Dispatching click...")
-        window.dispatch_event('on_mouse_press', 200, 500, 1, 0)
-    
-    if frame_count == 4:
-        print("Taking screenshot...")
-        pyglet.image.get_buffer_manager().get_color_buffer().save('dropdown_test_fixed.png')
-        pyglet.app.exit()
-
-
-import pyglet
-frame_count = 0
-
-@window.event
-def on_draw():
-    global frame_count
-    frame_count += 1
-    
-    if frame_count == 2:
-        print("Dispatching click...")
-        # filamentProfileMenu is at right=baseGridRight - widgetBufferRight, top=menuTopY
-        # In baseGrid column 1, X is roughly 500-600.
-        # Y is windowHeight(720) - bannerHeight(90) - menuTopY
-        window.dispatch_event('on_mouse_press', 650, 480, 1, 0)
-    
-    if frame_count == 4:
-        print("Taking screenshot...")
-        pyglet.image.get_buffer_manager().get_color_buffer().save('dropdown_test_fixed.png')
-        pyglet.app.exit()
-
+    main()
