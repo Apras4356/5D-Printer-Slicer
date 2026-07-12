@@ -1249,42 +1249,43 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
             
             if R_printMode.currentlyChecked == "5-Axis Mode":
                 import widget_functions
-                hit_plane = None
-                closest_plane_dist = float('inf')
-                hit_plane_normal = None
-                for k in range(int(widget_functions.numSlicingDirections)):
-                    if k >= len(widget_functions.startingPositions) or k >= len(widget_functions.directions):
-                        continue
-                    planeOrigin = np.array(widget_functions.startingPositions[k])
-                    theta, phi = widget_functions.directions[k]
-                    nx = np.sin(np.radians(theta)) * np.cos(np.radians(phi))
-                    ny = np.sin(np.radians(theta)) * np.sin(np.radians(phi))
-                    nz = np.cos(np.radians(theta))
-                    normal = np.array([nx, ny, nz])
-                    
-                    hit, pt = self.User_Interaction.ray_intersects_plane(rayOrigin, rayDirection, planeOrigin, normal)
-                    if hit:
-                        dist_to_center = np.linalg.norm(pt - planeOrigin)
-                        dist_from_cam = np.linalg.norm(pt - rayOrigin)
-                        if dist_to_center < 50.0 and dist_from_cam < closest_plane_dist:
-                            hit_plane = k
-                            closest_plane_dist = dist_from_cam
-                            hit_plane_normal = normal
-                            
-                if hit_plane is not None:
-                    widget_functions.S_currentSlicingDirection.entryBox.entryBoxEditableLabel.set_text(str(hit_plane + 1))
-                    widget_functions.update_current_selection()
-                    
-                    self.dragging_slice_plane = hit_plane
-                    self.plane_drag_normal = hit_plane_normal
-                    self.plane_vertex_heights = []
-                    for mesh_idx in L_loadedIndices:
-                        mesh = Render_Model.D_stlMeshes[mesh_idx]
-                        heights = np.dot(mesh.vertices, hit_plane_normal)
-                        self.plane_vertex_heights.extend(heights.tolist())
-                    self.plane_vertex_heights = np.array(self.plane_vertex_heights)
-                    return pyglet.event.EVENT_HANDLED
-                    
+                if not getattr(self, 'dragging_slicing_box', False):
+                    hit_plane = None
+                    closest_plane_dist = float('inf')
+                    hit_plane_normal = None
+                    for k in range(int(widget_functions.numSlicingDirections)):
+                        if k >= len(widget_functions.startingPositions) or k >= len(widget_functions.directions):
+                            continue
+                        planeOrigin = np.array(widget_functions.startingPositions[k])
+                        theta, phi = widget_functions.directions[k]
+                        nx = np.sin(np.radians(theta)) * np.cos(np.radians(phi))
+                        ny = np.sin(np.radians(theta)) * np.sin(np.radians(phi))
+                        nz = np.cos(np.radians(theta))
+                        normal = np.array([nx, ny, nz])
+                        
+                        hit, pt = self.User_Interaction.ray_intersects_plane(rayOrigin, rayDirection, planeOrigin, normal)
+                        if hit:
+                            dist_to_center = np.linalg.norm(pt - planeOrigin)
+                            dist_from_cam = np.linalg.norm(pt - rayOrigin)
+                            if dist_to_center < 50.0 and dist_from_cam < closest_plane_dist:
+                                hit_plane = k
+                                closest_plane_dist = dist_from_cam
+                                hit_plane_normal = normal
+                                
+                    if hit_plane is not None:
+                        widget_functions.S_currentSlicingDirection.entryBox.entryBoxEditableLabel.set_text(str(hit_plane + 1))
+                        widget_functions.update_current_selection()
+                        
+                        self.dragging_slice_plane = hit_plane
+                        self.plane_drag_normal = hit_plane_normal
+                        self.plane_vertex_heights = []
+                        for mesh_idx in L_loadedIndices:
+                            mesh = Render_Model.D_stlMeshes[mesh_idx]
+                            heights = np.dot(mesh.vertices, hit_plane_normal)
+                            self.plane_vertex_heights.extend(heights.tolist())
+                        self.plane_vertex_heights = np.array(self.plane_vertex_heights)
+                        return pyglet.event.EVENT_HANDLED
+                        
             ctrlPressed = modifiers & pyglet.window.key.MOD_CTRL
             self.anySelected = False
             closestMeshIndex = None

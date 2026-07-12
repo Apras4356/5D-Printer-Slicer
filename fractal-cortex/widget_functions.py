@@ -1246,13 +1246,20 @@ def auto_pick_directions():
     total_area = np.sum(areas)
     min_cluster_area = total_area * 0.05 # At least 5% of total area
     
+    try:
+        non_planar = r1c1SettingsDeck.get_widget("resolution").is_checked
+    except Exception:
+        non_planar = False
+        
+    dot_threshold = 0.85 if non_planar else 0.99
+
     for idx in sorted_indices:
         n = normals[idx]
         a = areas[idx]
         
         matched = False
         for c in clusters:
-            if np.dot(c['normal'], n) > 0.85: # ~31 degrees tolerance
+            if np.dot(c['normal'], n) > dot_threshold: # ~31 degrees tolerance
                 c['area'] += a
                 c['normal'] = c['normal'] * c['weight'] + n * a
                 c['weight'] += a
@@ -1293,25 +1300,26 @@ def auto_pick_directions():
             centroids = np.vstack([centroids, n])
         idx += 1
         
-    # Spherical K-Means Iteration for refinement
-    for _ in range(10):
-        dots = np.dot(normals, centroids.T)
-        assignments = np.argmax(dots, axis=1)
-        
-        new_centroids = np.zeros_like(centroids)
-        for k in range(K):
-            cluster_normals = normals[assignments == k]
-            cluster_areas = areas[assignments == k]
-            if len(cluster_normals) > 0:
-                weighted_sum = np.sum(cluster_normals * cluster_areas[:, np.newaxis], axis=0)
-                norm = np.linalg.norm(weighted_sum)
-                if norm > 1e-6:
-                    new_centroids[k] = weighted_sum / norm
+    # Spherical K-Means Iteration for refinement (only for non-planar tops)
+    if non_planar:
+        for _ in range(10):
+            dots = np.dot(normals, centroids.T)
+            assignments = np.argmax(dots, axis=1)
+            
+            new_centroids = np.zeros_like(centroids)
+            for k in range(K):
+                cluster_normals = normals[assignments == k]
+                cluster_areas = areas[assignments == k]
+                if len(cluster_normals) > 0:
+                    weighted_sum = np.sum(cluster_normals * cluster_areas[:, np.newaxis], axis=0)
+                    norm = np.linalg.norm(weighted_sum)
+                    if norm > 1e-6:
+                        new_centroids[k] = weighted_sum / norm
+                    else:
+                        new_centroids[k] = centroids[k]
                 else:
                     new_centroids[k] = centroids[k]
-            else:
-                new_centroids[k] = centroids[k]
-        centroids = new_centroids
+            centroids = new_centroids
         
     # Set directions and starting positions
     for k in range(K):
@@ -1564,19 +1572,18 @@ def display_slicing_directions_box():
 
     safe_board_add(rightToolBarBoard, I_slicingDirectionBox, left=21 + ox, bottom=5 + oy)
 
-    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13 - oy)
+    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13 + oy)
     S_currentSlicingDirection.update_maxValue(int(numSlicingDirections))  # Update the size of slicingDirectionList
 
-    safe_board_add(rightToolBarTopBoard, B_addNew, left=352 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 - oy)
-    safe_board_add(rightToolBarTopBoard, B_remove, left=391 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 - oy)
-    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229 + ox, top=height - 275 - oy)
-    safe_board_add(settingsBoard, B_autoSlicingDirections, center_x_percent=0.3, bottom=2 * widgetBufferVertical)
+    safe_board_add(rightToolBarTopBoard, B_addNew, left=352 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 + oy)
+    safe_board_add(rightToolBarTopBoard, B_remove, left=391 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 + oy)
+    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229 + ox, top=height - 275 + oy)
 
-    safe_board_add(rightToolBarTopBoard, S_startingX, left=90 + ox, top=height - 180 - oy)
-    safe_board_add(rightToolBarTopBoard, S_startingY, left=90 + ox, top=height - 220 - oy)
-    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90 + ox, top=height - 260 - oy)
-    safe_board_add(rightToolBarTopBoard, S_theta, left=285 + ox, top=height - 180 - oy)
-    safe_board_add(rightToolBarTopBoard, S_phi, left=285 + ox, top=height - 220 - oy)
+    safe_board_add(rightToolBarTopBoard, S_startingX, left=90 + ox, top=height - 180 + oy)
+    safe_board_add(rightToolBarTopBoard, S_startingY, left=90 + ox, top=height - 220 + oy)
+    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90 + ox, top=height - 260 + oy)
+    safe_board_add(rightToolBarTopBoard, S_theta, left=285 + ox, top=height - 180 + oy)
+    safe_board_add(rightToolBarTopBoard, S_phi, left=285 + ox, top=height - 220 + oy)
 
 def enable_5_axis_mode():
     global numSlicingDirections, startingPositions, directions
@@ -1863,6 +1870,7 @@ def initialize_all_widgets(gui, windowHeight):
     leftToolBarTopBoard.add(r3c1GeometryActionDeck,left=85, bottom=115 - 2 * popUpWidgetHeightSpacing + 10)
     leftToolBarTopBoard.add(r4c0GeometryActionDeck,left=70, bottom=115 - 3 * popUpWidgetHeightSpacing + 15)
     leftToolBarTopBoard.add(r4c1GeometryActionDeck,left=85, bottom=115 - 3 * popUpWidgetHeightSpacing + 10)
+    leftToolBarTopBoard.add(B_autoSlicingDirections, left=70, bottom=15)
 
     viewportGrid.set_col_width(1, 420)
     
@@ -2833,7 +2841,6 @@ slicingDirectionsBoxWidgets = [
     B_addNew,
     B_remove,
     B_removeAll,
-    B_autoSlicingDirections,
     S_startingX,
     S_startingY,
     S_startingZ,
