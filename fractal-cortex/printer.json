@@ -1,5 +1,5 @@
 {
-    "buildPlateShape": "circular",
+    "buildPlateShape": "rectangular",
     "buildPlateX": 235.0,
     "buildPlateY": 235.0,
     "buildPlateZ": 250.0

@@ -1659,49 +1659,45 @@ def enable_5_axis_mode():
 def initialize_all_widgets(gui, windowHeight):
     """CONTAINER WIDGETS"""
     # Entire window
-    gui.add(baseGrid)
-    baseGrid.clear()
-    # R0 C0
-    leftBannerStack = glooey.Stack()
-    leftBannerStack.insert(Dark_Gray_Background(), 0)
-    leftBannerBoard = glooey.Board()
-    leftBannerStack.insert(leftBannerBoard, 1)
-    baseGrid.add(0, 0, leftBannerStack)
-
-    # R0 C1
-    topLeftStack1.insert(Dark_Gray_Background(), 0)
-    baseGrid.add(0, 1, topLeftStack1)
+    rootGrid = glooey.Grid(2, 1)
+    gui.add(rootGrid)
     
-    # R1 C0
-    baseGrid.add(1, 0, settingsStack)
+    topBannerStack = glooey.Stack()
+    topBannerStack.insert(Dark_Gray_Background(), 0)
+    topBannerBoard = glooey.Board()
+    topBannerStack.insert(topBannerBoard, 1)
+    
+    rootGrid.add(0, 0, topBannerStack)
+    rootGrid.set_row_height(0, bannerHeight)
+    
+    rootGrid.add(1, 0, baseGrid)
+    baseGrid.clear()
+    # R0 C0 (formerly R1 C0)
+    baseGrid.add(0, 0, settingsStack)
     settingsStack.insert(Light_Gray_Background(), 0)
     settingsStack.insert(settingsBoard, 1)
     settingsStack.insert(slicingDirectionBoard, 2)
     
-    # R1 C1
+    # R0 C1 (formerly R1 C1)
     leftToolBarStack.insert(leftToolBarBoard, 0)
     leftToolBarStack.insert(leftToolBarTopBoard, 1)
     rightToolBarStack.insert(rightToolBarBoard, 0)
     rightToolBarStack.insert(rightToolBarTopBoard, 1)
     
-    # R2 C0
-    baseGrid.add(2, 0, Light_Gray_Background())
+    # R1 C0 (formerly R2 C0)
+    baseGrid.add(1, 0, Light_Gray_Background())
 
-    # R2 C1
+    # R1 C1 (formerly R2 C1)
 
     """ Adjust container parameters """
-    baseGrid.set_row_height(0, bannerHeight)
     baseGrid.set_col_width(0, baseGridRight)
-    baseGrid.set_row_height(1, baseGridTop)
+    baseGrid.set_row_height(0, baseGridTop)
     lowerLeftTop = windowHeight - (bannerHeight + baseGridTop)
-    # topLeftGrid.set_col_width(0, 315) # No longer needed
 
     """ Add widgets to containers """
-    # R0 C0
-    leftBannerBoard.add(I_logo, left=15, center_y_percent=0.5)
-    
-    # R0 C1
-    topLeftStack1.add(R_viewMode)
+    # Top Banner
+    topBannerBoard.add(I_logo, left=15, center_y_percent=0.5)
+    topBannerBoard.add(R_viewMode, center_x_percent=0.5, center_y_percent=0.5)
     
     # R1 C0
     safe_board_add(settingsBoard, L_settingsTitle, center_x_percent=0.5, top=baseGridTop - widgetBufferVertical)
@@ -1709,6 +1705,7 @@ def initialize_all_widgets(gui, windowHeight):
     enable_5_axis_mode()  # Default mode provides starter 5-axis options
     
     # R1 C1
+    leftToolBarBoard.add(B_togglePanel, left=0, center_y_percent=0.5)
     leftToolBarBoard.add(B_selectFile, left=0, top=baseGridTop)
     leftToolBarBoard.add(B_saveProject, left=60, top=baseGridTop)
     leftToolBarBoard.add(B_calibration, left=120, top=baseGridTop)
@@ -1743,17 +1740,17 @@ def initialize_all_widgets(gui, windowHeight):
     
     viewportGrid.add(0, 0, leftToolBarStack)
     viewportGrid.add(0, 1, rightViewportStack)
-    baseGrid.add(1, 1, viewportGrid) # This needs to be added after everything has been added to the settingsBoard or else the radio button order will get messed up again
+    baseGrid.add(0, 1, viewportGrid) # This needs to be added after everything has been added to the settingsBoard or else the radio button order will get messed up again
     
-    # R2 C0
+    # R1 C0 (formerly R2 C0)
     safe_board_add(settingsBoard, sliceButtonDeck, center_x_percent=0.5, bottom=2 * widgetBufferVertical)
 
-    # R2 C1
+    # R1 C1 (formerly R2 C1)
 
 """ WIDGET DEFINITIONS """
 # CONTAINER WIDGETS:
 # Entire Window
-baseGrid = glooey.Grid(3, 2)
+baseGrid = glooey.Grid(2, 2)
 # R0 C0
 topLeftGrid = glooey.Grid(1, 2)
 topLeftStack1 = glooey.Stack()
@@ -1766,6 +1763,7 @@ rightToolBarStack = glooey.Stack()
 rightToolBarBoard = glooey.Board()
 rightToolBarTopBoard = glooey.Board()
 leftToolBarStack = glooey.Stack()
+leftToolBarStack.alignment = 'fill'
 leftToolBarBoard = glooey.Board()
 leftToolBarTopBoard = glooey.Board()
 # R1 C1
@@ -2526,6 +2524,36 @@ B_plateSettings = Unlabeled_Image_Button(
     toggle_plate_settings_layout,
     [],
 )
+
+class Toggle_Panel_Button(glooey.Button):
+    class Foreground(Widget_Label):
+        custom_color = '#ffffff'
+        custom_font_size = 18
+        custom_alignment = 'center'
+    class Base(glooey.Background):
+        custom_color = '#2c2c2c'
+    class Over(glooey.Background):
+        custom_color = '#4c4c4c'
+    class Down(glooey.Background):
+        custom_color = '#1c1c1c'
+
+B_togglePanel = Toggle_Panel_Button("<")
+
+def toggle_left_panel(widget):
+    global baseGridRight
+    if baseGridRight > 0:
+        baseGridRight = 0
+        settingsStack.hide()
+        sliceButtonDeck.hide()
+        B_togglePanel.foreground.set_text(">")
+    else:
+        baseGridRight = 450
+        settingsStack.unhide()
+        sliceButtonDeck.unhide()
+        B_togglePanel.foreground.set_text("<")
+    baseGrid.set_col_width(0, baseGridRight)
+
+B_togglePanel.push_handlers(on_click=toggle_left_panel)
 
 B_selectFile = Unlabeled_Image_Button(
     "image_resources/File_Button_Images/base.png",

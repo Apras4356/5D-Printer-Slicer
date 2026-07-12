@@ -336,7 +336,7 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         viewX = widget_functions.baseGridRight
         viewY = 0
         viewW = max(1, self.width - widget_functions.baseGridRight)
-        viewH = max(1, self.height - widget_functions.bannerHeight)
+        viewH = max(1, self.height - widget_functions.bannerHeight - 65)
 
         glViewport(viewX, viewY, viewW, viewH)                                  # Sets the bounds of where the viewport will be rendered
         glMatrixMode(GL_PROJECTION)                                             # Specifies matrix stack that will be used for subsequent matrix operations. GL_PROJECTION contains information about the viewing volume
@@ -1192,7 +1192,7 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
             viewX = widget_functions.baseGridRight
             viewY = 0
             viewW = max(1, self.width - widget_functions.baseGridRight)
-            viewH = max(1, self.height - widget_functions.bannerHeight)
+            viewH = max(1, self.height - widget_functions.bannerHeight - 65)
             
             cube_size = 100
             padding = 20
@@ -1361,7 +1361,7 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                 viewX = widget_functions.baseGridRight
                 viewY = 0
                 viewW = max(1, self.width - widget_functions.baseGridRight)
-                viewH = max(1, self.height - widget_functions.bannerHeight)
+                viewH = max(1, self.height - widget_functions.bannerHeight - 65)
                 cube_size = 100
                 padding = 20
                 vp_x = int(viewX + viewW - cube_size - padding)
