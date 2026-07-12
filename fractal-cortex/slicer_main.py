@@ -175,6 +175,8 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
 
         """ Add All Widgets: """
         self.gui = glooey.Gui(self)
+        self.gui.clear_before_draw = False
+        self.push_handlers(on_draw=self.draw_3d_scene)
 
         """ End of Widgets """
         self.projectionMatrix = (GLdouble * 16)()
@@ -318,7 +320,8 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         glDisable(GL_LIGHT0)
         glDisable(GL_DEPTH_TEST)
 
-    def on_draw(self):
+    def draw_3d_scene(self):
+        self.clear()                    # Clear the screen at the start of drawing
         self.reenable_lighting()        # This in conjunction with disabling lighting at the end of this function solves the problem with incorrectly shading the widgets
 
         glLoadIdentity()                # Replaces the current matrix (the matrix on top of the stack) with the identity matrix
@@ -525,6 +528,10 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
 
         self.disable_lighting()                                 # This in conjunction with reenabling lighting at the top of this function solves the problem with incorrectly shading the widgets
         glClear(GL_DEPTH_BUFFER_BIT)                            # Clear depth buffer so 2D GUI elements draw on top of 3D objects
+
+    def on_draw(self):
+        # Override default Window.on_draw to prevent self.clear() from wiping out the screen after everything is drawn
+        pass
 
     def update_geometry_action_variables(self, fileKey):
         popUpBoxState = r0GeometryActionDeck.get_state()

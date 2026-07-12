@@ -1572,18 +1572,18 @@ def display_slicing_directions_box():
 
     safe_board_add(rightToolBarBoard, I_slicingDirectionBox, left=21 + ox, bottom=5 + oy)
 
-    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13 + oy)
+    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13 - oy)
     S_currentSlicingDirection.update_maxValue(int(numSlicingDirections))  # Update the size of slicingDirectionList
 
-    safe_board_add(rightToolBarTopBoard, B_addNew, left=352 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 + oy)
-    safe_board_add(rightToolBarTopBoard, B_remove, left=391 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 + oy)
-    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229 + ox, top=height - 275 + oy)
+    safe_board_add(rightToolBarTopBoard, B_addNew, left=352 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 - oy)
+    safe_board_add(rightToolBarTopBoard, B_remove, left=391 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 - oy)
+    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229 + ox, top=height - 275 - oy)
 
-    safe_board_add(rightToolBarTopBoard, S_startingX, left=90 + ox, top=height - 180 + oy)
-    safe_board_add(rightToolBarTopBoard, S_startingY, left=90 + ox, top=height - 220 + oy)
-    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90 + ox, top=height - 260 + oy)
-    safe_board_add(rightToolBarTopBoard, S_theta, left=285 + ox, top=height - 180 + oy)
-    safe_board_add(rightToolBarTopBoard, S_phi, left=285 + ox, top=height - 220 + oy)
+    safe_board_add(rightToolBarTopBoard, S_startingX, left=90 + ox, top=height - 180 - oy)
+    safe_board_add(rightToolBarTopBoard, S_startingY, left=90 + ox, top=height - 220 - oy)
+    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90 + ox, top=height - 260 - oy)
+    safe_board_add(rightToolBarTopBoard, S_theta, left=285 + ox, top=height - 180 - oy)
+    safe_board_add(rightToolBarTopBoard, S_phi, left=285 + ox, top=height - 220 - oy)
 
 def enable_5_axis_mode():
     global numSlicingDirections, startingPositions, directions
