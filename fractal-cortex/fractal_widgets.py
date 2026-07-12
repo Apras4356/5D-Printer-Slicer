@@ -1003,7 +1003,7 @@ class Button(glooey.Button):
         self.Down.custom_color = self.downColor
         self.Down.custom_outline = "black"
 
-        super().__init__(self.label)
+        super().__init__(text=self.label)
 
     def on_click(self, widget):
         self.function(*self.argsList)

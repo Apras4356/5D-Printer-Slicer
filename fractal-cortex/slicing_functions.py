@@ -890,6 +890,7 @@ def all_5_axis_calculations(mesh, printSettings, slicingDirections):
     retractionSpeed = float(printSettings[14])
     enableSupports = bool(printSettings[15])
     enableBrim = bool(printSettings[16])
+    enableNonPlanarTopSurfaces = bool(printSettings[17]) if len(printSettings) > 17 else False
     # Collecting slice plane settings
     numSlicingDirections = int(slicingDirections[0])
     startingPositions = slicingDirections[1]
@@ -1143,6 +1144,57 @@ def all_5_axis_calculations(mesh, printSettings, slicingDirections):
                 optimizedSolidInfills = list(executor.map(apply_get_solid_infill_for_one_layer_function, argsList))
             end = time.time() - start
             print("Manifold Infill took ", end, "seconds.", "\n")
+
+            if enableNonPlanarTopSurfaces:
+                try:
+                    print("==================================================")
+                    print("PHASE 3: Non-Planar Path Projection & Smoothing (Chunk " + str(k) + ")")
+                    print("==================================================")
+                    import trimesh.ray.ray_triangle
+                    intersector = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
+                    
+                    top_layers_start = max(0, len(slice_levels) - shellThickness)
+                    for layer_idx in range(top_layers_start, len(optimizedSolidInfills)):
+                        projected_infill = []
+                        transform = transform3DList[layer_idx]
+                        inv_transform = np.linalg.inv(transform)
+                        
+                        for line_group in optimizedSolidInfills[layer_idx]:
+                            new_line_group = []
+                            for linestring in line_group:
+                                coords = list(linestring.coords)
+                                new_coords = []
+                                if len(coords) > 0:
+                                    z_offset = slice_levels[-1] - slice_levels[layer_idx] + 10.0
+                                    local_origins = np.array([[c[0], c[1], z_offset, 1.0] for c in coords])
+                                    global_origins = (transform @ local_origins.T).T[:, :3]
+                                    global_directions = np.tile(-currentNormal, (len(coords), 1))
+                                    
+                                    locations, index_ray, index_tri = intersector.intersects_location(global_origins, global_directions)
+                                    
+                                    hit_dict = {}
+                                    for loc, i_ray in zip(locations, index_ray):
+                                        loc_h = np.array([loc[0], loc[1], loc[2], 1.0])
+                                        loc_local = inv_transform @ loc_h
+                                        z_local = loc_local[2]
+                                        if i_ray not in hit_dict or z_local > hit_dict[i_ray]:
+                                            hit_dict[i_ray] = z_local
+                                            
+                                    for i, c in enumerate(coords):
+                                        if i in hit_dict:
+                                            new_coords.append((c[0], c[1], hit_dict[i]))
+                                        else:
+                                            new_coords.append((c[0], c[1], 0.0))
+                                
+                                if len(new_coords) >= 2:
+                                    new_line_group.append(LineString(new_coords))
+                                else:
+                                    new_line_group.append(linestring)
+                            projected_infill.append(new_line_group)
+                        optimizedSolidInfills[layer_idx] = projected_infill
+                except Exception as e:
+                    print("Error during non-planar projection for chunk", k, ":", e)
+
             chunk_optimizedSolidInfills[str(k)] = optimizedSolidInfills
 
             if k == 0: # Only calculate adhesion if it's the initial chunk
@@ -1247,6 +1299,10 @@ def write_5_axis_gcode(newFile, savedFileName, printSettings, startingPositions,
             point = pathPoints[p]
             X = round(point[0], 5)
             Y = round(point[1], 5)
+            is_3d = len(point) == 3
+            if is_3d:
+                Z = round(point[2], 5)
+                
             if p == 0:  # If it's the first point in the path
                 if enableRetraction == True:
                     openFile.write("G1 F" + str(E_FEEDRATE) + " E" + str(round(E - retractionDistance, 5)) + " ; Retraction" + "\n")
@@ -1256,29 +1312,52 @@ def write_5_axis_gcode(newFile, savedFileName, printSettings, startingPositions,
                     openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z" + str(round(nozzleHeight + 30.0 + layerHeight, 5)) + "\n")
                     newChunk = False
                 if runOnce == True:  # If both the G0 and G1 feedrate for this feature hasn't yet been set on this layer
-                    openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n")
+                    if is_3d:
+                        openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + " Z" + str(Z) + "\n")
+                    else:
+                        openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n")
                 else:  # If it's the first point in the path and G0 and G1 feedrates have already been set
-                    openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n") # ("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n")
+                    if is_3d:
+                        openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + " Z" + str(Z) + "\n")
+                    else:
+                        openFile.write("G0 F" + str(G0XY_FEEDRATE) + " X" + str(X) + " Y" + str(Y) + "\n")
                     if enableZHop == True:
-                        openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z" + str(round(nozzleHeight, 5)) + "\n")
+                        if is_3d:
+                            openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z" + str(Z) + "\n")
+                        else:
+                            openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z" + str(round(nozzleHeight, 5)) + "\n")
                     if enableRetraction == True:
                         openFile.write("G1 F" + str(E_FEEDRATE) + " E" + str(round(E, 5)) + " ; Reversed Retraction" + "\n")
             else:  # If it's any point other than the first point in the path
-                s = ((X - previousX) ** 2 + (Y - previousY) ** 2) ** 0.5  # Calculate Euclidian distance
+                if is_3d:
+                    s = ((X - previousX) ** 2 + (Y - previousY) ** 2 + (Z - previousZ) ** 2) ** 0.5
+                else:
+                    s = ((X - previousX) ** 2 + (Y - previousY) ** 2) ** 0.5  # Calculate Euclidian distance
                 E += ((4.0 * layerHeight * lineWidth * s) / (np.pi * (1.75**2)))  # Use conservation of mass to determine length of 1.75mm filament to extrude
                 if runOnce == True:  # If both the G0 and G1 feedrate for this feature hasn't yet been set on this layer
                     if enableZHop == True:
-                        openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z"+ str(round(nozzleHeight, 5)) + "\n")
+                        if is_3d:
+                            openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z"+ str(Z) + "\n")
+                        else:
+                            openFile.write("G0 F" + str(G0Z_FEEDRATE) + " Z"+ str(round(nozzleHeight, 5)) + "\n")
                     if enableRetraction == True:
                         openFile.write("G1 F" + str(E_FEEDRATE) + " E" + str(round(previousE, 5)) + " ; Reversed Retraction" + "\n")
-                    openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " E" + str(round(E, 5)) + "\n")
+                    if is_3d:
+                        openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " Z" + str(Z) + " E" + str(round(E, 5)) + "\n")
+                    else:
+                        openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " E" + str(round(E, 5)) + "\n")
                     runOnce = False
                 else:  # If it's the second (or any following) points on the path and the G0 and G1 feedrates have already been set
-                    openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " E" + str(round(E, 5)) + "\n") # ("G1 X" + str(X) + " Y" + str(Y) + " E" + str(round(E, 5)) + "\n")
+                    if is_3d:
+                        openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " Z" + str(Z) + " E" + str(round(E, 5)) + "\n")
+                    else:
+                        openFile.write("G1 F" + str(PRINT_FEEDRATE) + " X" + str(X) + " Y"+ str(Y) + " E" + str(round(E, 5)) + "\n")
                 previousE = E
 
             previousX = X
             previousY = Y
+            if is_3d:
+                previousZ = Z
 
     def rotate_coordinates(coords, phi):
         """Rotate 2D coordinates about the Z-axis by a given angle."""
@@ -1317,7 +1396,10 @@ def write_5_axis_gcode(newFile, savedFileName, printSettings, startingPositions,
                 
                 printable_coords_3d = np.array([np.matmul(DCM_AB, point3D) for point3D in coords_3d])
 
-                layerPaths.append([(point[0], point[1]) for point in printable_coords_3d])
+                layerPaths.append([
+                    (p_3d[0], p_3d[1], p_3d[2]) if len(c_2d) > 2 else (p_3d[0], p_3d[1])
+                    for p_3d, c_2d in zip(printable_coords_3d, coords_2d)
+                ])
             printable_pathPoints.append(layerPaths)
             midLayer_Z_Heights.append(printable_coords_3d[0][2])
 
@@ -1343,7 +1425,10 @@ def write_5_axis_gcode(newFile, savedFileName, printSettings, startingPositions,
                 
                 printable_coords_3d = np.array([np.matmul(DCM_AB, point3D) for point3D in coords_3d])
 
-                layerPaths.append([(point[0], point[1]) for point in printable_coords_3d])
+                layerPaths.append([
+                    (p_3d[0], p_3d[1], p_3d[2]) if len(c_2d) > 2 else (p_3d[0], p_3d[1])
+                    for p_3d, c_2d in zip(printable_coords_3d, coords_2d)
+                ])
             printable_pathPoints.append(layerPaths)
 
         return printable_pathPoints
@@ -1878,10 +1963,11 @@ def write_3_axis_gcode(newFile, savedFileName, printSettings, transform3DList, a
 
 
 def transform_point(point, matrix):
-    """Transform a 2D point using a 4x4 transformation matrix."""
+    """Transform a point using a 4x4 transformation matrix."""
     
-    # Convert 2D point to homogeneous coordinates
-    point_h = np.array([point[0], point[1], 0, 1])
+    # Convert point to homogeneous coordinates
+    z_val = point[2] if len(point) > 2 else 0.0
+    point_h = np.array([point[0], point[1], z_val, 1.0])
     # Apply transformation
     transformed = matrix @ point_h
     # Return 3D point

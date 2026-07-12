@@ -238,6 +238,8 @@ baseGridTop = 720 - bannerHeight
 
 numSlicingDirections = 1
 maxSlicingDirections = 20
+slicing_box_offset_x = 0
+slicing_box_offset_y = 0
 startingPositions = [[0.0, 0.0, 0.0]]   # [xPosition, yPosition, zPosition]
 directions = [[0.0, 0.0]]               # [theta, phi]
 NANs = ["", "-", ".", "-."]
@@ -1102,7 +1104,11 @@ def checkSlicePlaneValidity():
 
 def set_numSlicingDirections():
     global numSlicingDirections, slicingDirectionList, startingPositions, directions, D_slicePlaneValidity
-    numSlicingDirections = S_numSlicingDirections.entryBox.entryBoxEditableLabel.get_text()
+    try:
+        if hasattr(S_numSlicingDirections.entryBox.entryBoxEditableLabel, '_layout') and S_numSlicingDirections.entryBox.entryBoxEditableLabel._layout is not None:
+            numSlicingDirections = S_numSlicingDirections.entryBox.entryBoxEditableLabel.get_text()
+    except AttributeError:
+        pass
     if numSlicingDirections in NANs:
         numSlicingDirections = 2
     def get_maxHeightOfAllSTLs():
@@ -1210,6 +1216,128 @@ def update_starting_positions():  # This is called every time the up or down but
     else:
         zPosition = float(zPosition)
     startingPositions[currentIndex] = [xPosition, yPosition, zPosition]
+
+def auto_pick_directions():
+    global startingPositions, directions, numSlicingDirections, maxSlicingDirections
+    
+    meshData = B_numSlicingDirections.D_variables.get('meshData', [{}, {}])
+    importedMeshList = list(meshData[1].values())
+    if not importedMeshList:
+        return
+        
+    import trimesh
+    import numpy as np
+    
+    combined_mesh = trimesh.util.concatenate(importedMeshList)
+    normals = combined_mesh.face_normals
+    areas = combined_mesh.area_faces
+    
+    valid_mask = ~np.isnan(normals).any(axis=1)
+    normals = normals[valid_mask]
+    areas = areas[valid_mask]
+    
+    if len(normals) == 0:
+        return
+        
+    # Dynamic cluster discovery
+    clusters = []
+    sorted_indices = np.argsort(areas)[::-1]
+    
+    total_area = np.sum(areas)
+    min_cluster_area = total_area * 0.05 # At least 5% of total area
+    
+    for idx in sorted_indices:
+        n = normals[idx]
+        a = areas[idx]
+        
+        matched = False
+        for c in clusters:
+            if np.dot(c['normal'], n) > 0.85: # ~31 degrees tolerance
+                c['area'] += a
+                c['normal'] = c['normal'] * c['weight'] + n * a
+                c['weight'] += a
+                c['normal'] /= np.linalg.norm(c['normal'])
+                matched = True
+                break
+                
+        if not matched:
+            clusters.append({'normal': n, 'area': a, 'weight': a})
+            
+    # Filter clusters
+    valid_clusters = [c for c in clusters if c['area'] > min_cluster_area]
+    
+    K = len(valid_clusters)
+    if K < 2:
+        K = 2
+    K = min(K, maxSlicingDirections)
+    
+    # Update UI for number of slicing directions
+    global numSlicingDirections
+    numSlicingDirections = K
+    try:
+        S_numSlicingDirections.entryBox.entryBoxEditableLabel.set_text(str(K))
+    except AttributeError:
+        pass
+    set_numSlicingDirections() # This initializes the arrays correctly
+    
+    centroids = np.array([c['normal'] for c in valid_clusters[:K]])
+    
+    # Pad if necessary
+    standard_normals = [np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0]), np.array([-1,0,0]), np.array([0,-1,0]), np.array([0,0,-1])]
+    idx = 0
+    while len(centroids) < K:
+        n = standard_normals[idx % len(standard_normals)]
+        if len(centroids) == 0:
+            centroids = np.array([n])
+        else:
+            centroids = np.vstack([centroids, n])
+        idx += 1
+        
+    # Spherical K-Means Iteration for refinement
+    for _ in range(10):
+        dots = np.dot(normals, centroids.T)
+        assignments = np.argmax(dots, axis=1)
+        
+        new_centroids = np.zeros_like(centroids)
+        for k in range(K):
+            cluster_normals = normals[assignments == k]
+            cluster_areas = areas[assignments == k]
+            if len(cluster_normals) > 0:
+                weighted_sum = np.sum(cluster_normals * cluster_areas[:, np.newaxis], axis=0)
+                norm = np.linalg.norm(weighted_sum)
+                if norm > 1e-6:
+                    new_centroids[k] = weighted_sum / norm
+                else:
+                    new_centroids[k] = centroids[k]
+            else:
+                new_centroids[k] = centroids[k]
+        centroids = new_centroids
+        
+    # Set directions and starting positions
+    for k in range(K):
+        n_vec = centroids[k]
+        theta = np.arccos(np.clip(n_vec[2], -1.0, 1.0))
+        phi = np.arctan2(n_vec[1], n_vec[0])
+        
+        directions[k] = [np.degrees(theta), np.degrees(phi)]
+        
+        cluster_mask = (assignments == k)
+        cluster_faces = np.where(cluster_mask)[0]
+        if len(cluster_faces) > 0:
+            cluster_vertices = combined_mesh.vertices[combined_mesh.faces[cluster_faces][:, 0]]
+            projections = np.dot(cluster_vertices, n_vec)
+            mean_proj = np.average(projections, weights=areas[cluster_mask])
+        else:
+            mean_proj = 0.0
+            
+        startingPositions[k] = (n_vec * mean_proj).tolist()
+
+    R_optionMode.D_variables['startingPositions'] = startingPositions
+    R_optionMode.D_variables['directions'] = directions
+    
+    # Refresh GUI
+    update_current_selection()
+    B_numSlicingDirections.D_variables['applied'] = False
 
 def update_directions():
     global directions
@@ -1428,22 +1556,27 @@ def display_starting_box():
     safe_board_add(slicingDirectionBoard, B_numSlicingDirections, left=355, top=530 - 11)
 
 def display_slicing_directions_box():
+    global slicing_box_offset_x, slicing_box_offset_y
     height = 320
+    
+    ox = slicing_box_offset_x
+    oy = slicing_box_offset_y
 
-    safe_board_add(rightToolBarBoard, I_slicingDirectionBox, left=21, bottom=5)
+    safe_board_add(rightToolBarBoard, I_slicingDirectionBox, left=21 + ox, bottom=5 + oy)
 
-    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13)
+    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13 - oy)
     S_currentSlicingDirection.update_maxValue(int(numSlicingDirections))  # Update the size of slicingDirectionList
 
-    safe_board_add(rightToolBarTopBoard, B_addNew, left=352, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11)
-    safe_board_add(rightToolBarTopBoard, B_remove, left=391, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11)
-    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229, top=height - 275)
+    safe_board_add(rightToolBarTopBoard, B_addNew, left=352 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 - oy)
+    safe_board_add(rightToolBarTopBoard, B_remove, left=391 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 - oy)
+    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229 + ox, top=height - 275 - oy)
+    safe_board_add(settingsBoard, B_autoSlicingDirections, center_x_percent=0.3, bottom=2 * widgetBufferVertical)
 
-    safe_board_add(rightToolBarTopBoard, S_startingX, left=90, top=height - 180)
-    safe_board_add(rightToolBarTopBoard, S_startingY, left=90, top=height - 220)
-    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90, top=height - 260)
-    safe_board_add(rightToolBarTopBoard, S_theta, left=285, top=height - 180)
-    safe_board_add(rightToolBarTopBoard, S_phi, left=285, top=height - 220)
+    safe_board_add(rightToolBarTopBoard, S_startingX, left=90 + ox, top=height - 180 - oy)
+    safe_board_add(rightToolBarTopBoard, S_startingY, left=90 + ox, top=height - 220 - oy)
+    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90 + ox, top=height - 260 - oy)
+    safe_board_add(rightToolBarTopBoard, S_theta, left=285 + ox, top=height - 180 - oy)
+    safe_board_add(rightToolBarTopBoard, S_phi, left=285 + ox, top=height - 220 - oy)
 
 def enable_5_axis_mode():
     global numSlicingDirections, startingPositions, directions
@@ -2636,6 +2769,21 @@ B_removeAll = Unlabeled_Image_Button(
     [],
 )
 
+B_autoSlicingDirections = Button(
+    "Auto Pick Planes",
+    "Segoe UI",
+    12,
+    "#ffffff",
+    "center",
+    120,
+    25,
+    "#444444",
+    "#666666",
+    "#888888",
+    auto_pick_directions,
+    [],
+)
+
 S_startingX = Spin_Box(
     80,
     "0.0",
@@ -2685,6 +2833,7 @@ slicingDirectionsBoxWidgets = [
     B_addNew,
     B_remove,
     B_removeAll,
+    B_autoSlicingDirections,
     S_startingX,
     S_startingY,
     S_startingZ,

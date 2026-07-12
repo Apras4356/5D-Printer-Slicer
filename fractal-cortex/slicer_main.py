@@ -1236,9 +1236,55 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
         if currentViewMode == "Preview":            # Don't allow user to interact with STL's in Preview mode
             return
         if button == mouse.LEFT:                    # If left button is clicked
+            if R_printMode.currentlyChecked == "5-Axis Mode":
+                import widget_functions
+                if widget_functions.I_slicingDirectionBox.is_under_mouse(x, y):
+                    self.dragging_slicing_box = True
+                    self.slicing_box_drag_start = (x, y)
+                    self.slicing_box_start_offset = (widget_functions.slicing_box_offset_x, widget_functions.slicing_box_offset_y)
+
             rayOrigin, rayDirection = self.User_Interaction.get_ray_from_mouse(
                 x, y, self.projectionMatrix, self.modelViewMatrix, self.viewportMatrix
             )                                       # Get the mouse ray
+            
+            if R_printMode.currentlyChecked == "5-Axis Mode":
+                import widget_functions
+                hit_plane = None
+                closest_plane_dist = float('inf')
+                hit_plane_normal = None
+                for k in range(int(widget_functions.numSlicingDirections)):
+                    if k >= len(widget_functions.startingPositions) or k >= len(widget_functions.directions):
+                        continue
+                    planeOrigin = np.array(widget_functions.startingPositions[k])
+                    theta, phi = widget_functions.directions[k]
+                    nx = np.sin(np.radians(theta)) * np.cos(np.radians(phi))
+                    ny = np.sin(np.radians(theta)) * np.sin(np.radians(phi))
+                    nz = np.cos(np.radians(theta))
+                    normal = np.array([nx, ny, nz])
+                    
+                    hit, pt = self.User_Interaction.ray_intersects_plane(rayOrigin, rayDirection, planeOrigin, normal)
+                    if hit:
+                        dist_to_center = np.linalg.norm(pt - planeOrigin)
+                        dist_from_cam = np.linalg.norm(pt - rayOrigin)
+                        if dist_to_center < 50.0 and dist_from_cam < closest_plane_dist:
+                            hit_plane = k
+                            closest_plane_dist = dist_from_cam
+                            hit_plane_normal = normal
+                            
+                if hit_plane is not None:
+                    widget_functions.S_currentSlicingDirection.entryBox.entryBoxEditableLabel.set_text(str(hit_plane + 1))
+                    widget_functions.update_current_selection()
+                    
+                    self.dragging_slice_plane = hit_plane
+                    self.plane_drag_normal = hit_plane_normal
+                    self.plane_vertex_heights = []
+                    for mesh_idx in L_loadedIndices:
+                        mesh = Render_Model.D_stlMeshes[mesh_idx]
+                        heights = np.dot(mesh.vertices, hit_plane_normal)
+                        self.plane_vertex_heights.extend(heights.tolist())
+                    self.plane_vertex_heights = np.array(self.plane_vertex_heights)
+                    return pyglet.event.EVENT_HANDLED
+                    
             ctrlPressed = modifiers & pyglet.window.key.MOD_CTRL
             self.anySelected = False
             closestMeshIndex = None
@@ -1320,6 +1366,48 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
             self.Camera.lookPositionY += dy * self.Camera.panningSensitivity
 
         if buttons & mouse.LEFT:                    # Perform action (Like Translate)
+            if getattr(self, 'dragging_slicing_box', False):
+                import widget_functions
+                dx_total = x - self.slicing_box_drag_start[0]
+                dy_total = y - self.slicing_box_drag_start[1]
+                widget_functions.slicing_box_offset_x = self.slicing_box_start_offset[0] + dx_total
+                widget_functions.slicing_box_offset_y = self.slicing_box_start_offset[1] + dy_total
+                widget_functions.display_slicing_directions_box()
+                return pyglet.event.EVENT_HANDLED
+                
+            if getattr(self, 'dragging_slice_plane', None) is not None:
+                import widget_functions
+                k = self.dragging_slice_plane
+                normal = self.plane_drag_normal
+                planeOrigin = np.array(widget_functions.startingPositions[k])
+                
+                rayOrigin, rayDirection = self.User_Interaction.get_ray_from_mouse(
+                    x, y, self.projectionMatrix, self.modelViewMatrix, self.viewportMatrix
+                )
+                
+                v = np.cross(normal, rayDirection)
+                N_drag = np.cross(v, rayDirection)
+                if np.linalg.norm(N_drag) < 1e-6:
+                    N_drag = normal
+                    
+                hit, pt = self.User_Interaction.ray_intersects_plane(rayOrigin, rayDirection, planeOrigin, N_drag)
+                if hit:
+                    h_new = np.dot(pt, normal)
+                    if hasattr(self, 'plane_vertex_heights') and len(self.plane_vertex_heights) > 0:
+                        dists = np.abs(self.plane_vertex_heights - h_new)
+                        min_dist_idx = np.argmin(dists)
+                        if dists[min_dist_idx] < 2.0:
+                            h_new = self.plane_vertex_heights[min_dist_idx]
+                            
+                    new_pos = h_new * normal
+                    widget_functions.startingPositions[k] = new_pos.tolist()
+                    
+                    if str(k + 1) == widget_functions.S_currentSlicingDirection.entryBox.entryBoxEditableLabel.get_text():
+                        widget_functions.S_startingX.entryBox.entryBoxEditableLabel.set_text(f"{new_pos[0]:.2f}")
+                        widget_functions.S_startingY.entryBox.entryBoxEditableLabel.set_text(f"{new_pos[1]:.2f}")
+                        widget_functions.S_startingZ.entryBox.entryBoxEditableLabel.set_text(f"{new_pos[2]:.2f}")
+                return pyglet.event.EVENT_HANDLED
+
             if self.dragging == True:
                 rayOrigin, rayDirection = self.User_Interaction.get_ray_from_mouse(
                     x,
@@ -1350,6 +1438,9 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                             )                       # Accumulate the translations to get the final positions
 
     def on_mouse_release(self, x, y, button, modifiers):
+        self.dragging_slice_plane = None
+        self.dragging_slicing_box = False
+        
         if getattr(self, 'view_cube_face_clicked', None) and button == mouse.LEFT:
             if not getattr(self, 'dragging_view_cube', False):
                 import math
@@ -1956,6 +2047,14 @@ class User_Interaction:
             return False, None
         intersectionPoint = rayOrigin + t * rayDirection
         return True, intersectionPoint
+
+    @staticmethod
+    def ray_intersects_plane(rayOrigin, rayDirection, planeOrigin, planeNormal):
+        denom = np.dot(rayDirection, planeNormal)
+        if abs(denom) < 1e-6:
+            return False, None
+        t = np.dot(planeOrigin - rayOrigin, planeNormal) / denom
+        return True, rayOrigin + t * rayDirection
 
 
 # Main function
