@@ -497,6 +497,12 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
             startingPositions = R_optionMode.D_variables['startingPositions']
             directions = R_optionMode.D_variables['directions']
             colors = self.Render_SlicePlanes.colors
+            import widget_functions
+            try:
+                selected_k = int(widget_functions.S_currentSlicingDirection.entryBox.entryBoxEditableLabel.get_text()) - 1
+            except ValueError:
+                selected_k = -1
+
             for k in range(numSlicingDirections):
                 if k != 0:                                      # Skip the initial plane, since the initial slice direction is always normal to the build plate
                     isValid = D_slicePlaneValidity[str(k)]
@@ -505,7 +511,17 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                     startZ = startingPositions[k][2]
                     theta = directions[k][0]
                     phi = directions[k][1]
-                    if isValid:                                 # If the current sliceplane is valid, color it blue
+                    
+                    is_selected = (k == selected_k)
+                    
+                    if is_selected:
+                        # Highlight the selected plane
+                        plane_vbo = self.Render_SlicePlanes.define_slicePlane(startX, startY, startZ, theta, phi, radius=50.0)
+                        if isValid:
+                            self.Render_SlicePlanes.draw_plane(plane_vbo, color=(0.0, 1.0, 1.0, 0.8)) # Cyan if valid
+                        else:
+                            self.Render_SlicePlanes.draw_plane(plane_vbo, color=(1.0, 0.0, 1.0, 0.8)) # Magenta if invalid
+                    elif isValid:                                 # If the current sliceplane is valid, color it blue
                         R = colors[k][0]/255.0
                         G = colors[k][1]/255.0
                         B = colors[k][2]/255.0
@@ -513,7 +529,7 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                         self.Render_SlicePlanes.draw_plane(plane_vbo, color=(R, G, B, 0.5))
                     else:                                       # If the current sliceplane is invalid, color it red
                         plane_vbo = self.Render_SlicePlanes.define_slicePlane(startX, startY, startZ, theta, phi, radius=50.0)
-                        self.Render_SlicePlanes.draw_plane(plane_vbo, color=(255.0, 0.0, 0.0, 0.5))
+                        self.Render_SlicePlanes.draw_plane(plane_vbo, color=(1.0, 0.0, 0.0, 0.5))
         else:
             self.Render_SlicePlanes.cleanup_current_vbo()
 
@@ -1378,8 +1394,10 @@ class Graphics_Window(pyglet.window.Window):  # Custom pyglet window which conta
                 import widget_functions
                 dx_total = x - self.slicing_box_drag_start[0]
                 dy_total = y - self.slicing_box_drag_start[1]
-                widget_functions.slicing_box_offset_x = self.slicing_box_start_offset[0] + dx_total
-                widget_functions.slicing_box_offset_y = self.slicing_box_start_offset[1] + dy_total
+                ox = self.slicing_box_start_offset[0] + dx_total
+                oy = self.slicing_box_start_offset[1] + dy_total
+                widget_functions.slicing_box_offset_x = ox
+                widget_functions.slicing_box_offset_y = max(-5, min(oy, self.windowHeight - 320))
                 widget_functions.display_slicing_directions_box()
                 return pyglet.event.EVENT_HANDLED
                 

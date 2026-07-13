@@ -1163,16 +1163,37 @@ def add_new_slicing_direction():
 def remove_slicing_direction():
     global slicingDirectionList, startingPositions, directions, D_slicePlaneValidity
     if slicingDirectionList[-1] > 2:
+        try:
+            currentIndex = int(S_currentSlicingDirection.entryBox.entryBoxEditableLabel.get_text()) - 1
+        except ValueError:
+            currentIndex = slicingDirectionList[-1] - 1
+        
+        # Guard in case somehow the index is out of bounds or points to the base plane
+        if currentIndex < 1 or currentIndex >= len(startingPositions):
+            currentIndex = len(startingPositions) - 1
+
         newMaxValue = slicingDirectionList[-1] - 1
         S_currentSlicingDirection.update_maxValue(newMaxValue)                                              # Update the size of slicingDirectionList
         slicingDirectionList.pop(-1)                                                                        # Update slicingDirectionList
-        startingPositions.pop(-1)
-        directions.pop(-1)
-
-        S_currentSlicingDirection.entryBox.entryBoxEditableLabel.set_text(str(slicingDirectionList[-1]))    # Set the current text to the last index
-
-        del D_slicePlaneValidity[str(newMaxValue)]
         
+        startingPositions.pop(currentIndex)
+        directions.pop(currentIndex)
+
+        # Shift the validity dictionary keys down
+        for i in range(currentIndex, newMaxValue):
+            if str(i+1) in D_slicePlaneValidity:
+                D_slicePlaneValidity[str(i)] = D_slicePlaneValidity[str(i+1)]
+        
+        if str(newMaxValue) in D_slicePlaneValidity:
+            del D_slicePlaneValidity[str(newMaxValue)]
+
+        # If the deleted index was the last one, we need to update the spinbox label
+        current_text_val = currentIndex + 1
+        if current_text_val > newMaxValue:
+            S_currentSlicingDirection.entryBox.entryBoxEditableLabel.set_text(str(newMaxValue))
+        else:
+            S_currentSlicingDirection.entryBox.entryBoxEditableLabel.set_text(str(current_text_val))
+
         update_current_selection()
 
         R_optionMode.D_variables['numSlicingDirections'] = newMaxValue                                      # Update this so it can be retrieved from the main script
@@ -1301,6 +1322,9 @@ def auto_pick_directions():
         idx += 1
         
     # Spherical K-Means Iteration for refinement (only for non-planar tops)
+    dots = np.dot(normals, centroids.T)
+    assignments = np.argmax(dots, axis=1)
+
     if non_planar:
         for _ in range(10):
             dots = np.dot(normals, centroids.T)
@@ -1345,7 +1369,8 @@ def auto_pick_directions():
     
     # Refresh GUI
     update_current_selection()
-    B_numSlicingDirections.D_variables['applied'] = False
+    B_numSlicingDirections.D_variables['applied'] = True
+
 
 def update_directions():
     global directions
@@ -1572,18 +1597,18 @@ def display_slicing_directions_box():
 
     safe_board_add(rightToolBarBoard, I_slicingDirectionBox, left=21 + ox, bottom=5 + oy)
 
-    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13 - oy)
+    safe_board_add(rightToolBarTopBoard, S_currentSlicingDirection, left=285 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 13 + oy)
     S_currentSlicingDirection.update_maxValue(int(numSlicingDirections))  # Update the size of slicingDirectionList
 
-    safe_board_add(rightToolBarTopBoard, B_addNew, left=352 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 - oy)
-    safe_board_add(rightToolBarTopBoard, B_remove, left=391 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 - oy)
-    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229 + ox, top=height - 275 - oy)
+    safe_board_add(rightToolBarTopBoard, B_addNew, left=352 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 + oy)
+    safe_board_add(rightToolBarTopBoard, B_remove, left=391 + ox, top=height - 2 * widgetHeightSpacing - 2 * widgetBufferVertical - 11 + oy)
+    safe_board_add(rightToolBarTopBoard, B_removeAll, left=229 + ox, top=height - 275 + oy)
 
-    safe_board_add(rightToolBarTopBoard, S_startingX, left=90 + ox, top=height - 180 - oy)
-    safe_board_add(rightToolBarTopBoard, S_startingY, left=90 + ox, top=height - 220 - oy)
-    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90 + ox, top=height - 260 - oy)
-    safe_board_add(rightToolBarTopBoard, S_theta, left=285 + ox, top=height - 180 - oy)
-    safe_board_add(rightToolBarTopBoard, S_phi, left=285 + ox, top=height - 220 - oy)
+    safe_board_add(rightToolBarTopBoard, S_startingX, left=90 + ox, top=height - 180 + oy)
+    safe_board_add(rightToolBarTopBoard, S_startingY, left=90 + ox, top=height - 220 + oy)
+    safe_board_add(rightToolBarTopBoard, S_startingZ, left=90 + ox, top=height - 260 + oy)
+    safe_board_add(rightToolBarTopBoard, S_theta, left=285 + ox, top=height - 180 + oy)
+    safe_board_add(rightToolBarTopBoard, S_phi, left=285 + ox, top=height - 220 + oy)
 
 def enable_5_axis_mode():
     global numSlicingDirections, startingPositions, directions
@@ -1821,6 +1846,8 @@ def initialize_all_widgets(gui, windowHeight):
     # R0 C1 (formerly R1 C1)
     leftToolBarStack.insert(leftToolBarBoard, 0)
     leftToolBarStack.insert(leftToolBarTopBoard, 1)
+    leftToolBarStack.insert(leftToolBarTopAnchoredBoard, 2)
+    leftToolBarStack.insert(leftToolBarTopAnchoredTopBoard, 3)
     rightToolBarStack.insert(rightToolBarBoard, 0)
     rightToolBarStack.insert(rightToolBarTopBoard, 1)
     
@@ -1831,7 +1858,8 @@ def initialize_all_widgets(gui, windowHeight):
 
     """ Adjust container parameters """
     baseGrid.set_col_width(0, baseGridRight)
-    baseGrid.set_row_height(0, baseGridTop)
+#     baseGrid.set_row_height(0, baseGridTop)
+    baseGrid.set_row_height(1, 0)
     lowerLeftTop = windowHeight - (bannerHeight + baseGridTop)
 
     """ Add widgets to containers """
@@ -1840,26 +1868,26 @@ def initialize_all_widgets(gui, windowHeight):
     topBannerBoard.add(R_viewMode, center_x_percent=0.5, center_y_percent=0.5)
     
     # R1 C0
-    safe_board_add(settingsBoard, L_settingsTitle, center_x_percent=0.5, top=baseGridTop - widgetBufferVertical)
+    safe_board_add(settingsBoard, L_settingsTitle, center_x_percent=0.5, top=610)
     safe_board_add(settingsBoard, R_printMode, center_x_percent=0.5, top=565)
     enable_5_axis_mode()  # Default mode provides starter 5-axis options
     
     # R1 C1
     leftToolBarBoard.add(B_togglePanel, left=0, center_y_percent=0.5)
-    leftToolBarBoard.add(B_selectFile, left=0, top=baseGridTop)
-    leftToolBarBoard.add(B_saveProject, left=60, top=baseGridTop)
-    leftToolBarBoard.add(B_calibration, left=120, top=baseGridTop)
-    leftToolBarBoard.add(B_plateSettings, left=180, top=baseGridTop)
+    leftToolBarTopAnchoredBoard.add(B_selectFile, left=0, bottom=500)
+    leftToolBarTopAnchoredBoard.add(B_saveProject, left=60, bottom=500)
+    leftToolBarTopAnchoredBoard.add(B_calibration, left=120, bottom=500)
+    leftToolBarTopAnchoredBoard.add(B_plateSettings, left=180, bottom=500)
     
-    leftToolBarBoard.add(plateSettingsBackgroundDeck, left=180, top=baseGridTop - 50)
-    leftToolBarTopBoard.add(r1c1PlateSettingsDeck, left=250, top=baseGridTop - 60)
-    leftToolBarTopBoard.add(r1c0PlateSettingsDeck, left=190, top=baseGridTop - 60)
-    leftToolBarTopBoard.add(r2c0PlateSettingsDeck, left=190, top=baseGridTop - 60 - popUpWidgetHeightSpacing)
-    leftToolBarTopBoard.add(r2c1PlateSettingsDeck, left=265, top=baseGridTop - 60 - popUpWidgetHeightSpacing)
-    leftToolBarTopBoard.add(r3c0PlateSettingsDeck, left=190, top=baseGridTop - 60 - 2*popUpWidgetHeightSpacing)
-    leftToolBarTopBoard.add(r3c1PlateSettingsDeck, left=265, top=baseGridTop - 60 - 2*popUpWidgetHeightSpacing)
-    leftToolBarTopBoard.add(r4c0PlateSettingsDeck, left=190, top=baseGridTop - 60 - 3*popUpWidgetHeightSpacing)
-    leftToolBarTopBoard.add(r4c1PlateSettingsDeck, left=265, top=baseGridTop - 60 - 3*popUpWidgetHeightSpacing)
+    leftToolBarTopAnchoredBoard.add(plateSettingsBackgroundDeck, left=180, bottom=450)
+    leftToolBarTopAnchoredTopBoard.add(r1c1PlateSettingsDeck, left=250, bottom=440)
+    leftToolBarTopAnchoredTopBoard.add(r1c0PlateSettingsDeck, left=190, bottom=440)
+    leftToolBarTopAnchoredTopBoard.add(r2c0PlateSettingsDeck, left=190, bottom=440 - popUpWidgetHeightSpacing)
+    leftToolBarTopAnchoredTopBoard.add(r2c1PlateSettingsDeck, left=265, bottom=440 - popUpWidgetHeightSpacing)
+    leftToolBarTopAnchoredTopBoard.add(r3c0PlateSettingsDeck, left=190, bottom=440 - 2*popUpWidgetHeightSpacing)
+    leftToolBarTopAnchoredTopBoard.add(r3c1PlateSettingsDeck, left=265, bottom=440 - 2*popUpWidgetHeightSpacing)
+    leftToolBarTopAnchoredTopBoard.add(r4c0PlateSettingsDeck, left=190, bottom=440 - 3*popUpWidgetHeightSpacing)
+    leftToolBarTopAnchoredTopBoard.add(r4c1PlateSettingsDeck, left=265, bottom=440 - 3*popUpWidgetHeightSpacing)
     
     leftToolBarBoard.add(R_geometryAction, left=0, bottom=5)
     leftToolBarBoard.add(geometryActionBackgroundDeck, left=60, bottom=5)
@@ -1907,8 +1935,13 @@ leftToolBarStack = glooey.Stack()
 leftToolBarStack.alignment = 'fill'
 leftToolBarBoard = glooey.Board()
 leftToolBarTopBoard = glooey.Board()
+leftToolBarTopAnchoredBoard = glooey.Board()
+leftToolBarTopAnchoredBoard.alignment = 'top left'
+leftToolBarTopAnchoredTopBoard = glooey.Board()
+leftToolBarTopAnchoredTopBoard.alignment = 'top left' 
 # R1 C1
 settingsStack = glooey.Stack()
+settingsStack.alignment = 'center'
 settingsBoard = glooey.Board()
 slicingDirectionBoard = glooey.Board()
 # R2 C0
